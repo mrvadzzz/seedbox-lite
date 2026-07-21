@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Upload, Plus, Link as LinkIcon, Download, Leaf, Clock, Search, Trash2 } from 'lucide-react';
+﻿import React, { useState, useEffect } from 'react';
+import { Upload, Plus, Link as LinkIcon, Download, Leaf, Clock, Search, Trash2, Zap, HardDrive, Clapperboard } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { config } from '../config/environment';
 import torrentHistoryService from '../services/torrentHistoryService';
@@ -17,9 +17,30 @@ const HomePage = () => {
     loadRecentTorrents();
   }, []);
 
-  const loadRecentTorrents = () => {
-    const recent = torrentHistoryService.getRecentTorrents(8);
-    setRecentTorrents(recent);
+  const loadRecentTorrents = async () => {
+    try {
+      const response = await fetch(config.api.torrents);
+      if (!response.ok) {
+        throw new Error('Backend history is unavailable');
+      }
+
+      const data = await response.json();
+      const backendTorrents = (data.torrents || []).map(torrent => ({
+        infoHash: torrent.infoHash,
+        name: torrent.name || `Torrent ${torrent.infoHash?.substring(0, 8)}`,
+        addedAt: torrent.addedAt || new Date().toISOString(),
+        source: torrent.source || 'server',
+        originalInput: torrent.originalInput || '',
+        size: torrent.size || torrent.length || 0,
+        lastAccessed: torrent.addedAt || new Date().toISOString()
+      }));
+
+      setRecentTorrents(backendTorrents);
+    } catch (error) {
+      console.warn('Не удалось загрузить историю с сервера, использую локальную:', error.message);
+      const recent = torrentHistoryService.getRecentTorrents(8);
+      setRecentTorrents(recent);
+    }
   };
 
   const addTorrent = async (torrentData) => {
@@ -36,16 +57,16 @@ const HomePage = () => {
       const data = await response.json();
       
       if (response.ok) {
-        console.log('Torrent handled successfully:', data);
+        console.log('Торрент добавлен:', data);
         
         // Check if this torrent already exists in our history
         const existingInHistory = torrentHistoryService.getTorrentByInfoHash(data.infoHash);
         
         if (existingInHistory) {
-          console.log('📋 Torrent already exists in history, updating access time');
+          console.log('Торрент уже есть в истории, обновляю время доступа');
           torrentHistoryService.updateLastAccessed(data.infoHash);
         } else {
-          console.log('➕ Adding new torrent to history');
+          console.log('Добавляю торрент в историю');
           // Add to history
           torrentHistoryService.addTorrent({
             infoHash: data.infoHash,
@@ -62,12 +83,12 @@ const HomePage = () => {
         // Navigate to torrent page
         navigate(`/torrent/${data.infoHash}`);
       } else {
-        console.error('Failed to add torrent:', data);
-        alert('Failed to add torrent: ' + (data.error || 'Unknown error'));
+        console.error('Не удалось добавить торрент:', data);
+        alert('Не удалось добавить торрент: ' + (data.error || 'неизвестная ошибка'));
       }
     } catch (error) {
-      console.error('Error adding torrent:', error);
-      alert('Error adding torrent: ' + error.message);
+      console.error('Ошибка добавления торрента:', error);
+      alert('Ошибка добавления торрента: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -85,16 +106,16 @@ const HomePage = () => {
       const data = await response.json();
       
       if (response.ok) {
-        console.log('Torrent handled successfully:', data);
+        console.log('Торрент загружен:', data);
         
         // Check if this torrent already exists in our history
         const existingInHistory = torrentHistoryService.getTorrentByInfoHash(data.infoHash);
         
         if (existingInHistory) {
-          console.log('📋 Torrent already exists in history, updating access time');
+          console.log('Торрент уже есть в истории, обновляю время доступа');
           torrentHistoryService.updateLastAccessed(data.infoHash);
         } else {
-          console.log('➕ Adding new torrent to history');
+          console.log('Добавляю торрент в историю');
           // Add to history
           torrentHistoryService.addTorrent({
             infoHash: data.infoHash,
@@ -111,12 +132,12 @@ const HomePage = () => {
         // Navigate to torrent page
         navigate(`/torrent/${data.infoHash}`);
       } else {
-        console.error('Failed to upload torrent:', data);
-        alert('Failed to upload torrent: ' + (data.error || 'Unknown error'));
+        console.error('Не удалось загрузить торрент:', data);
+        alert('Не удалось загрузить торрент: ' + (data.error || 'неизвестная ошибка'));
       }
     } catch (error) {
-      console.error('Error uploading torrent:', error);
-      alert('Error uploading torrent: ' + error.message);
+      console.error('Ошибка загрузки торрента:', error);
+      alert('Ошибка загрузки торрента: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -144,21 +165,24 @@ const HomePage = () => {
 
   const removeTorrentFromHistory = (infoHash, e) => {
     e.stopPropagation();
-    if (window.confirm('Remove this torrent from history? (This won\'t delete the actual torrent data)')) {
+    if (window.confirm('Удалить этот торрент из истории на этом устройстве? Данные торрента на сервере не будут удалены.')) {
       torrentHistoryService.removeTorrent(infoHash);
       loadRecentTorrents();
     }
   };
 
   const clearAllHistory = () => {
-    if (window.confirm('Clear all torrent history? (This won\'t delete actual torrent data)')) {
+    if (window.confirm('Очистить локальную историю на этом устройстве? Данные торрентов на сервере не будут удалены.')) {
       torrentHistoryService.clearHistory();
       loadRecentTorrents();
     }
   };
 
-  const filteredTorrents = searchQuery 
-    ? torrentHistoryService.searchTorrents(searchQuery)
+  const filteredTorrents = searchQuery
+    ? recentTorrents.filter(torrent =>
+        (torrent.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (torrent.originalInput || '').toLowerCase().includes(searchQuery.toLowerCase())
+      )
     : recentTorrents;
 
   return (
@@ -169,7 +193,7 @@ const HomePage = () => {
             <Leaf size={48} className="brand-icon" />
             <div className="brand-text">
               <h1>SeedBox Lite</h1>
-              <p>Stream torrents instantly • No seeding required</p>
+              <p>Смотрите торренты сразу после добавления</p>
             </div>
           </div>
         </div>
@@ -179,7 +203,7 @@ const HomePage = () => {
         {/* URL Input Section */}
         {/* URL Input Section */}
         <div className="url-input-section">
-          <h2>Add Torrent or Magnet Link</h2>
+          <h2>Добавить торрент или magnet-ссылку</h2>
           <form onSubmit={handleUrlSubmit} className="url-form">
             <div className="input-group">
               <LinkIcon size={20} className="input-icon" />
@@ -187,7 +211,7 @@ const HomePage = () => {
                 type="text"
                 value={torrentUrl}
                 onChange={(e) => setTorrentUrl(e.target.value)}
-                placeholder="Paste your torrent URL or magnet link here..."
+                placeholder="Вставьте torrent URL или magnet-ссылку..."
                 className="url-input"
                 disabled={loading}
               />
@@ -201,7 +225,7 @@ const HomePage = () => {
                 ) : (
                   <>
                     <Download size={20} />
-                    Add Torrent
+                    Добавить
                   </>
                 )}
               </button>
@@ -218,14 +242,14 @@ const HomePage = () => {
               <label 
                 htmlFor="torrent-upload" 
                 className={`file-upload-button ${loading ? 'disabled' : ''}`}
-                title="Upload .torrent file"
+                title="Загрузить .torrent файл"
               >
                 {loading ? (
                   <div className="loading-spinner" />
                 ) : (
                   <>
                     <Upload size={20} />
-                    Choose File
+                    Выбрать файл
                   </>
                 )}
               </label>
@@ -235,7 +259,7 @@ const HomePage = () => {
           {/* Search Sources Link */}
           <div className="search-sources-link">
             <Link to="/search" className="search-link">
-              <Search size={18} /> Browse Custom Search Sources
+              <Search size={18} /> Источники поиска
             </Link>
           </div>
         </div>
@@ -247,19 +271,19 @@ const HomePage = () => {
           <div className="section-header">
             <h2>
               <Clock size={24} />
-              Recent Torrents
+              Недавние торренты
             </h2>
             <div className="section-actions">
               <button 
                 onClick={() => setShowHistory(!showHistory)} 
                 className="toggle-button"
               >
-                {showHistory ? 'Show Less' : `Show All (${recentTorrents.length})`}
+                {showHistory ? 'Свернуть' : `Показать все (${recentTorrents.length})`}
               </button>
               {showHistory && (
                 <button onClick={clearAllHistory} className="clear-button">
                   <Trash2 size={16} />
-                  Clear History
+                  Очистить историю
                 </button>
               )}
             </div>
@@ -271,7 +295,7 @@ const HomePage = () => {
                 <Search size={16} />
                 <input
                   type="text"
-                  placeholder="Search your torrents..."
+                  placeholder="Поиск по торрентам..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -299,7 +323,7 @@ const HomePage = () => {
                 <button
                   className="remove-button"
                   onClick={(e) => removeTorrentFromHistory(torrent.infoHash, e)}
-                  title="Remove from history"
+                  title="Удалить из истории"
                 >
                   <Trash2 size={14} />
                 </button>
@@ -313,7 +337,7 @@ const HomePage = () => {
                 onClick={() => setShowHistory(true)} 
                 className="view-all-button"
               >
-                View All {recentTorrents.length} Torrents
+                Показать все: {recentTorrents.length}
               </button>
             </div>
           )}
@@ -322,16 +346,16 @@ const HomePage = () => {
 
       <div className="features-summary">
         <div className="feature-item">
-          <span className="feature-icon">🚀</span>
-          <span>Instant streaming while downloading</span>
+          <Zap className="feature-icon" aria-hidden="true" />
+          <span>Просмотр во время загрузки</span>
         </div>
         <div className="feature-item">
-          <span className="feature-icon">💾</span>
-          <span>Progress tracking & resume</span>
+          <HardDrive className="feature-icon" aria-hidden="true" />
+          <span>Запоминание прогресса</span>
         </div>
         <div className="feature-item">
-          <span className="feature-icon">🎬</span>
-          <span>Built-in video player</span>
+          <Clapperboard className="feature-icon" aria-hidden="true" />
+          <span>Встроенный видеоплеер</span>
         </div>
       </div>
     </div>

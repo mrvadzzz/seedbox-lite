@@ -20,8 +20,8 @@ const VideoModal = ({ isOpen, onClose, children, title }) => {
   };
 
   return (
-    <div className="video-modal-overlay" onClick={handleOverlayClick}>
-      <div className="video-modal">
+    <div className="video-modal-overlay" onClick={handleOverlayClick} role="presentation">
+      <div className="video-modal" role="dialog" aria-modal="true" aria-label={title || 'Видеоплеер'}>
         <div className="video-modal-header">
           <div className="modal-title">
             <h3>{title}</h3>
@@ -30,14 +30,16 @@ const VideoModal = ({ isOpen, onClose, children, title }) => {
             <button 
               onClick={openInNewTab}
               className="modal-action-button"
-              title="Open in new tab"
+              title="Открыть видео в новой вкладке"
+              aria-label="Открыть видео в новой вкладке"
             >
               <ExternalLink size={18} />
             </button>
             <button 
               onClick={onClose}
               className="modal-close-button"
-              title="Close video"
+              title="Закрыть видео"
+              aria-label="Закрыть видео"
             >
               <X size={20} />
             </button>

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Play, Trash2, Clock, Film } from 'lucide-react';
 import VideoModal from './VideoModal';
+import VideoPlayer from './VideoPlayer';
+import { config } from '../config/environment';
 import progressService from '../services/progressService';
 import './RecentPage.css';
 
@@ -28,15 +30,16 @@ const RecentPage = () => {
 
   const handleVideoSelect = (video) => {
     setSelectedVideo({
-      src: `/api/video/${video.torrentHash}/${video.fileIndex}`,
+      src: config.getStreamUrl(video.torrentHash, video.fileIndex),
       title: video.fileName,
       torrentHash: video.torrentHash,
-      fileIndex: video.fileIndex
+      fileIndex: video.fileIndex,
+      initialTime: video.currentTime || 0
     });
   };
 
   const handleRemoveProgress = (video) => {
-    if (window.confirm('Remove this video from recent list?')) {
+    if (window.confirm('Удалить это видео из списка недавних?')) {
       progressService.removeProgress(video.torrentHash, video.fileIndex);
       loadRecentVideos();
       loadStats();
@@ -44,7 +47,7 @@ const RecentPage = () => {
   };
 
   const handleClearAll = () => {
-    if (window.confirm('Clear all video progress? This cannot be undone.')) {
+    if (window.confirm('Очистить весь прогресс просмотра? Это действие нельзя отменить.')) {
       progressService.clearAllProgress();
       loadRecentVideos();
       loadStats();
@@ -61,15 +64,15 @@ const RecentPage = () => {
         <div className="header-content">
           <h1>
             <Clock size={28} />
-            Recent Videos
+            Недавние видео
           </h1>
-          <p>Continue watching where you left off</p>
+          <p>Продолжайте просмотр с того места, где остановились</p>
         </div>
         
         {recentVideos.length > 0 && (
           <button onClick={handleClearAll} className="clear-all-button">
             <Trash2 size={16} />
-            Clear All
+            Очистить всё
           </button>
         )}
       </div>
@@ -77,23 +80,23 @@ const RecentPage = () => {
       {/* Statistics */}
       {Object.keys(stats).length > 0 && (
         <div className="stats-section">
-          <h2>Statistics</h2>
+          <h2>Статистика</h2>
           <div className="stats-grid">
             <div className="stat-card">
               <div className="stat-value">{stats.totalVideos}</div>
-              <div className="stat-label">Total Videos</div>
+              <div className="stat-label">Всего видео</div>
             </div>
             <div className="stat-card">
               <div className="stat-value">{stats.completed}</div>
-              <div className="stat-label">Completed</div>
+              <div className="stat-label">Досмотрено</div>
             </div>
             <div className="stat-card">
               <div className="stat-value">{stats.inProgress}</div>
-              <div className="stat-label">In Progress</div>
+              <div className="stat-label">В процессе</div>
             </div>
             <div className="stat-card">
               <div className="stat-value">{stats.totalWatchTime}</div>
-              <div className="stat-label">Watch Time</div>
+              <div className="stat-label">Время просмотра</div>
             </div>
           </div>
         </div>
@@ -104,20 +107,20 @@ const RecentPage = () => {
         {recentVideos.length === 0 ? (
           <div className="empty-state">
             <Film size={48} />
-            <h3>No recent videos</h3>
-            <p>Start watching videos to see them here</p>
+            <h3>Недавних видео пока нет</h3>
+            <p>Начните просмотр, и видео появятся здесь</p>
             <button onClick={() => navigate('/')} className="browse-button">
-              Browse Torrents
+              К торрентам
             </button>
           </div>
         ) : (
           <div className="videos-grid">
-            {recentVideos.map((video, index) => (
+            {recentVideos.map((video) => (
               <div key={`${video.torrentHash}-${video.fileIndex}`} className="video-card">
                 <div className="video-progress-bg">
                   <div 
                     className="video-progress-fill" 
-                    style={{ width: `${video.percentage}%` }}
+                    style={{ width: `${Math.min(100, Math.max(0, video.percentage || 0))}%` }}
                   ></div>
                 </div>
                 
@@ -128,14 +131,17 @@ const RecentPage = () => {
                     </h3>
                     <div className="video-meta">
                       <span className="progress-text">
-                        {progressService.formatTime(video.currentTime)} / {progressService.formatTime(video.duration)}
+                        {progressService.formatTime(video.currentTime)}
+                        {video.duration > video.currentTime && ` / ${progressService.formatTime(video.duration)}`}
                       </span>
                       <span className="watch-time">
                         {progressService.formatRelativeTime(video.lastWatched)}
                       </span>
                     </div>
                     <div className="progress-percentage">
-                      {Math.round(video.percentage)}% completed
+                      {video.duration > video.currentTime
+                        ? `${Math.round(video.percentage)}% просмотрено`
+                        : 'Есть сохранённая позиция'}
                       {video.isCompleted && <span className="completed-badge">✓</span>}
                     </div>
                   </div>
@@ -144,21 +150,21 @@ const RecentPage = () => {
                     <button 
                       onClick={() => handleVideoSelect(video)}
                       className="play-action"
-                      title="Continue watching"
+                      title="Продолжить просмотр"
                     >
                       <Play size={16} />
                     </button>
                     <button 
                       onClick={() => goToTorrent(video.torrentHash)}
                       className="torrent-action"
-                      title="View torrent"
+                      title="Открыть торрент"
                     >
                       <Film size={16} />
                     </button>
                     <button 
                       onClick={() => handleRemoveProgress(video)}
                       className="remove-action"
-                      title="Remove from recent"
+                      title="Удалить из недавних"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -174,11 +180,16 @@ const RecentPage = () => {
         <VideoModal
           isOpen={true}
           onClose={() => setSelectedVideo(null)}
-          src={selectedVideo.src}
           title={selectedVideo.title}
-          torrentHash={selectedVideo.torrentHash}
-          fileIndex={selectedVideo.fileIndex}
-        />
+        >
+          <VideoPlayer
+            src={selectedVideo.src}
+            title={selectedVideo.title}
+            torrentHash={selectedVideo.torrentHash}
+            fileIndex={selectedVideo.fileIndex}
+            initialTime={selectedVideo.initialTime}
+          />
+        </VideoModal>
       )}
     </div>
   );

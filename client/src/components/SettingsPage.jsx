@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Trash2, Download, Globe, Shield, HardDrive, ExternalLink, LogOut, Search } from 'lucide-react';
+import { Settings, Trash2, Download, Globe, HardDrive, ExternalLink, LogOut, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { config } from '../config/environment';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 import progressService from '../services/progressService';
 import './SettingsPage.css';
 
@@ -55,7 +55,7 @@ const SettingsPage = () => {
   };
 
   const clearAllData = () => {
-    if (window.confirm('Clear all application data? This will remove all progress, settings, and cache. This cannot be undone.')) {
+    if (window.confirm('Очистить все данные приложения? Будут удалены прогресс, настройки и кеш. Это нельзя отменить.')) {
       localStorage.clear();
       progressService.clearAllProgress();
       setSettings({
@@ -68,12 +68,12 @@ const SettingsPage = () => {
         bufferSize: 50
       });
       loadStats();
-      alert('All data cleared successfully');
+      alert('Все данные очищены');
     }
   };
 
   const clearWebTorrentCache = async () => {
-    if (window.confirm('Clear WebTorrent cache? This will remove all downloaded torrent data and stop active torrents.')) {
+    if (window.confirm('Очистить кеш WebTorrent? Загруженные данные будут удалены, активные торренты остановятся.')) {
       try {
         const response = await fetch(config.api.torrents, {
           method: 'DELETE'
@@ -81,22 +81,22 @@ const SettingsPage = () => {
         
         if (response.ok) {
           const result = await response.json();
-          alert(`WebTorrent cache cleared: ${result.cleared || 0} torrents removed`);
+          alert(`Кеш WebTorrent очищен. Удалено торрентов: ${result.cleared || 0}`);
         } else {
-          alert('Failed to clear WebTorrent cache');
+          alert('Не удалось очистить кеш WebTorrent');
         }
       } catch (error) {
         console.error('Error clearing WebTorrent cache:', error);
-        alert('Error clearing WebTorrent cache: ' + error.message);
+        alert('Ошибка очистки кеша WebTorrent: ' + error.message);
       }
     }
   };
 
   const clearProgressData = () => {
-    if (window.confirm('Clear all video progress data? Your watch history and resume points will be lost.')) {
+    if (window.confirm('Очистить весь прогресс просмотра? История и точки продолжения будут удалены.')) {
       progressService.clearAllProgress();
       loadStats();
-      alert('Progress data cleared successfully');
+      alert('Прогресс просмотра очищен');
     }
   };
 
@@ -136,9 +136,9 @@ const SettingsPage = () => {
           loadStats();
         }
         
-        alert('Settings imported successfully');
+        alert('Настройки импортированы');
       } catch (error) {
-        alert('Error importing settings: Invalid file format');
+        alert('Ошибка импорта настроек: неверный формат файла');
         console.error('Import error:', error);
       }
     };
@@ -147,7 +147,7 @@ const SettingsPage = () => {
   };
 
   const handleLogout = () => {
-    if (window.confirm('Are you sure you want to logout? You will need to enter the password again to access the dashboard.')) {
+    if (window.confirm('Выйти? Для следующего входа потребуется снова ввести пароль.')) {
       logout();
     }
   };
@@ -157,29 +157,29 @@ const SettingsPage = () => {
       <div className="page-header">
         <h1>
           <Settings size={28} />
-          Settings
+          Настройки
         </h1>
-        <p>Configure your SeedBox Lite experience</p>
+        <p>Настройте SeedBox Lite под себя</p>
       </div>
 
       {/* Application Statistics */}
       <div className="settings-section">
-        <h2>📊 Statistics</h2>
+        <h2>📊 Статистика</h2>
         <div className="stats-grid">
           <div className="stat-item">
-            <span className="stat-label">Total Videos Watched</span>
+            <span className="stat-label">Всего видео</span>
             <span className="stat-value">{stats.totalVideos || 0}</span>
           </div>
           <div className="stat-item">
-            <span className="stat-label">Completed Videos</span>
+            <span className="stat-label">Досмотрено</span>
             <span className="stat-value">{stats.completed || 0}</span>
           </div>
           <div className="stat-item">
-            <span className="stat-label">Videos In Progress</span>
+            <span className="stat-label">В процессе</span>
             <span className="stat-value">{stats.inProgress || 0}</span>
           </div>
           <div className="stat-item">
-            <span className="stat-label">Total Watch Time</span>
+            <span className="stat-label">Время просмотра</span>
             <span className="stat-value">{stats.totalWatchTime || '0:00'}</span>
           </div>
         </div>
@@ -187,12 +187,12 @@ const SettingsPage = () => {
 
       {/* Video Settings */}
       <div className="settings-section">
-        <h2>🎬 Video Settings</h2>
+        <h2>🎬 Настройки видео</h2>
         <div className="settings-grid">
           <div className="setting-item">
             <label>
-              <span>Auto Resume Videos</span>
-              <p>Automatically ask to resume videos from last position</p>
+              <span>Продолжать просмотр</span>
+              <p>Предлагать продолжить с последней позиции</p>
             </label>
             <label className="switch">
               <input
@@ -206,8 +206,8 @@ const SettingsPage = () => {
 
           <div className="setting-item">
             <label>
-              <span>Default Quality Preference</span>
-              <p>Preferred video quality for streaming</p>
+              <span>Предпочитаемое качество</span>
+              <p>Желаемое качество видео для просмотра</p>
             </label>
             <select
               value={settings.defaultQuality}
@@ -224,8 +224,8 @@ const SettingsPage = () => {
 
           <div className="setting-item">
             <label>
-              <span>Buffer Size (MB)</span>
-              <p>Video buffer size for smooth playback</p>
+              <span>Размер буфера (МБ)</span>
+              <p>Буфер видео для более плавного просмотра</p>
             </label>
             <input
               type="range"
@@ -242,12 +242,12 @@ const SettingsPage = () => {
 
       {/* Download Settings */}
       <div className="settings-section">
-        <h2>⬇️ Download Settings</h2>
+        <h2>⬇️ Настройки загрузки</h2>
         <div className="settings-grid">
           <div className="setting-item">
             <label>
-              <span>Auto Start Downloads</span>
-              <p>Automatically start downloading when torrent is added</p>
+              <span>Автостарт загрузки</span>
+              <p>Начинать загрузку сразу после добавления торрента</p>
             </label>
             <label className="switch">
               <input
@@ -261,8 +261,8 @@ const SettingsPage = () => {
 
           <div className="setting-item">
             <label>
-              <span>Preserve Subtitle Files</span>
-              <p>Keep subtitle files when streaming videos</p>
+              <span>Сохранять субтитры</span>
+              <p>Не удалять файлы субтитров при просмотре</p>
             </label>
             <label className="switch">
               <input
@@ -276,8 +276,8 @@ const SettingsPage = () => {
 
           <div className="setting-item">
             <label>
-              <span>Max Connections</span>
-              <p>Maximum concurrent connections per torrent</p>
+              <span>Максимум соединений</span>
+              <p>Максимальное число соединений на торрент</p>
             </label>
             <input
               type="range"
@@ -294,28 +294,28 @@ const SettingsPage = () => {
 
       {/* Data Management */}
       <div className="settings-section">
-        <h2>🗃️ Data Management</h2>
+        <h2>🗃️ Управление данными</h2>
         <div className="data-actions">
           <Link to="/search" className="action-button search-management">
             <Search size={16} />
-            Manage Search Sources
+            Источники поиска
             <ExternalLink size={14} />
           </Link>
         
           <Link to="/cache" className="action-button cache-management">
             <HardDrive size={16} />
-            Detailed Cache Management
+            Управление кешем
             <ExternalLink size={14} />
           </Link>
           
           <button onClick={exportSettings} className="action-button export">
             <Download size={16} />
-            Export Settings & Progress
+            Экспорт настроек и прогресса
           </button>
           
           <label className="action-button import">
             <Globe size={16} />
-            Import Settings & Progress
+            Импорт настроек и прогресса
             <input
               type="file"
               accept=".json"
@@ -326,32 +326,32 @@ const SettingsPage = () => {
           
           <button onClick={clearWebTorrentCache} className="action-button warning">
             <Trash2 size={16} />
-            Clear WebTorrent Cache
+            Очистить кеш WebTorrent
           </button>
           
           <button onClick={clearProgressData} className="action-button warning">
             <Trash2 size={16} />
-            Clear Progress Data
+            Очистить прогресс просмотра
           </button>
           
           <button onClick={clearAllData} className="action-button danger">
             <Trash2 size={16} />
-            Clear All Data
+            Очистить все данные
           </button>
         </div>
       </div>
 
       {/* Security */}
       <div className="settings-section">
-        <h2>🔐 Security</h2>
+        <h2>🔐 Безопасность</h2>
         <div className="security-section">
           <div className="security-info">
-            <p>Your authentication is stored locally on this device for convenience. You can logout to require password entry on next access.</p>
+            <p>Авторизация хранится локально на этом устройстве. Можно выйти, чтобы при следующем входе снова требовался пароль.</p>
           </div>
           <div className="action-buttons">
             <button onClick={handleLogout} className="action-button danger">
               <LogOut size={16} />
-              Logout
+              Выйти
             </button>
           </div>
         </div>
@@ -359,22 +359,22 @@ const SettingsPage = () => {
 
       {/* About */}
       <div className="settings-section">
-        <h2>ℹ️ About</h2>
+        <h2>ℹ️ О приложении</h2>
         <div className="about-info">
           <div className="app-info">
             <h3>SeedBox Lite</h3>
-            <p>Version 1.0.0</p>
-            <p>A lightweight torrent streaming client with video progress tracking and subtitle support.</p>
+            <p>Версия 1.0.0</p>
+            <p>Лёгкий клиент для потокового просмотра торрентов с прогрессом просмотра и поддержкой субтитров.</p>
           </div>
           
           <div className="features-list">
-            <h4>Features:</h4>
+            <h4>Возможности:</h4>
             <ul>
-              <li>Stream-only torrent downloads (no seeding)</li>
-              <li>Video progress tracking and resume</li>
-              <li>Online subtitle search and support</li>
-              <li>Modern responsive interface</li>
-              <li>Local data storage and privacy</li>
+              <li>Потоковый просмотр торрентов</li>
+              <li>Запоминание прогресса и продолжение просмотра</li>
+              <li>Поиск и подключение субтитров</li>
+              <li>Современный адаптивный интерфейс</li>
+              <li>Локальное хранение данных</li>
             </ul>
           </div>
         </div>

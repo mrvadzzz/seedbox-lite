@@ -8,12 +8,9 @@ yarn-error.log*
 dist/
 build/
 
-# Environment files (except production)
+# Environment files and secrets
 .env
-.env.local
-.env.development.local
-.env.test.local
-!.env.production
+.env.*
 
 # Logs
 logs
@@ -45,6 +42,7 @@ docker-compose*
 # Cache directories
 .cache/
 .parcel-cache/
+.vite/
 
 # Runtime data
 pids

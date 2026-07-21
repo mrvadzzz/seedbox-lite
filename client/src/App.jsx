@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
+import { useAuth } from './context/auth';
 import Layout from './components/Layout';
 import HomePage from './components/HomePage';
 import TorrentPageNetflix from './components/TorrentPageNetflix';
@@ -35,7 +36,7 @@ const AuthenticatedApp = () => {
             animation: 'spin 1s linear infinite',
             margin: '0 auto 16px'
           }}></div>
-          <p>Loading Seedbox...</p>
+          <p>Загрузка SeedBox...</p>
         </div>
       </div>
     );

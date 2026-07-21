@@ -21,11 +21,15 @@ import {
   Search,
   Globe,
   X,
-  Minimize2
+  Minimize2,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { config } from '../config/environment';
 import progressService from '../services/progressService';
 import './VideoPlayer.css';
+
+const AUDIO_TRACKS_PER_PAGE = 3;
 
 const VideoPlayer = ({ 
   src, 
@@ -38,6 +42,7 @@ const VideoPlayer = ({
   onClose = null
 }) => {
   const videoRef = useRef(null);
+  const containerRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -47,8 +52,7 @@ const VideoPlayer = ({
   const [showControls, setShowControls] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [buffered, setBuffered] = useState(0);
-  const [bufferRanges, setBufferRanges] = useState([]);
-  const [instantPlayEnabled, setInstantPlayEnabled] = useState(true);
+  const instantPlayEnabled = true;
   const [bufferVisualization, setBufferVisualization] = useState({
     ahead: 0,
     behind: 0,
@@ -57,7 +61,94 @@ const VideoPlayer = ({
   });
   const [playbackRate, setPlaybackRate] = useState(1);
   const [showSettings, setShowSettings] = useState(false);
-  
+  const [availableAudioTracks, setAvailableAudioTracks] = useState([]);
+  const [audioTrackPage, setAudioTrackPage] = useState(0);
+  const [selectedAudioTrack, setSelectedAudioTrack] = useState(null);
+  const [videoSrc, setVideoSrc] = useState(src);
+  const [audioTrackError, setAudioTrackError] = useState(null);
+  const [isCompatibleAudio, setIsCompatibleAudio] = useState(false);
+  const currentTimeRef = useRef(0);
+  const streamOffsetRef = useRef(0);
+  const originalDurationRef = useRef(0);
+  const pendingPlaybackRef = useRef(false);
+  const audioAutoSelectedRef = useRef(false);
+  const fullscreenRequestedRef = useRef(false);
+  const nativeFullscreenActiveRef = useRef(false);
+
+  useEffect(() => {
+    setVideoSrc(src);
+    setSelectedAudioTrack(null);
+    setIsCompatibleAudio(false);
+    streamOffsetRef.current = 0;
+    currentTimeRef.current = 0;
+    originalDurationRef.current = 0;
+    pendingPlaybackRef.current = false;
+    audioAutoSelectedRef.current = false;
+  }, [src]);
+
+  const startCompatibleAudio = useCallback((audioIndex, startAt = 0, shouldPlay = false) => {
+    if (!torrentHash || fileIndex === null || fileIndex === undefined) return;
+
+    const safeAudioIndex = Number.isInteger(Number(audioIndex)) ? Number(audioIndex) : 0;
+    const safeStart = Number.isFinite(startAt) ? Math.max(0, startAt) : 0;
+    const nextSrc = config.getApiUrl(
+      `/api/torrents/${torrentHash}/files/${fileIndex}/transcode?audio=${safeAudioIndex}&start=${safeStart.toFixed(3)}&v=${Date.now()}`
+    );
+
+    streamOffsetRef.current = safeStart;
+    currentTimeRef.current = safeStart;
+    pendingPlaybackRef.current = shouldPlay;
+    setCurrentTime(safeStart);
+    setSelectedAudioTrack(safeAudioIndex);
+    setIsCompatibleAudio(true);
+    setIsLoading(true);
+    setVideoSrc(nextSrc);
+  }, [torrentHash, fileIndex]);
+
+  const fetchAudioTracks = useCallback(async () => {
+    if (!torrentHash || fileIndex === null || fileIndex === undefined) return;
+
+    try {
+      setAudioTrackError(null);
+      const response = await fetch(config.getTorrentUrl(torrentHash, `files/${fileIndex}/audio-tracks`));
+      if (!response.ok) {
+        throw new Error(`Не удалось прочитать аудиодорожки: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const tracks = data.tracks || [];
+      setAvailableAudioTracks(tracks);
+      setAudioTrackPage(0);
+      if (data.duration && !originalDurationRef.current) {
+        originalDurationRef.current = data.duration;
+        setDuration(data.duration);
+      }
+
+      if (data.requiresTranscode && data.recommendedAudioIndex !== null && !audioAutoSelectedRef.current) {
+        audioAutoSelectedRef.current = true;
+        const video = videoRef.current;
+        startCompatibleAudio(
+          data.recommendedAudioIndex,
+          currentTimeRef.current || initialTime,
+          Boolean(video && !video.paused)
+        );
+      }
+    } catch (error) {
+      console.warn('Не удалось получить аудиодорожки:', error);
+      setAudioTrackError('Аудиодорожки недоступны');
+      setAvailableAudioTracks([]);
+    }
+  }, [torrentHash, fileIndex, initialTime, startCompatibleAudio]);
+
+  useEffect(() => {
+    fetchAudioTracks();
+  }, [fetchAudioTracks]);
+
+  const selectAudioTrack = (track) => {
+    const video = videoRef.current;
+    startCompatibleAudio(track?.audioIndex ?? 0, currentTimeRef.current, Boolean(video && !video.paused));
+    setShowSettings(false);
+  };
   // Progress tracking states
   const [showResumeDialog, setShowResumeDialog] = useState(false);
   const [resumeData, setResumeData] = useState(null);
@@ -90,6 +181,11 @@ const VideoPlayer = ({
   const statsIntervalRef = useRef(null);
   const lastTapTimeRef = useRef(0);
   const tapCountRef = useRef(0);
+  const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+  const isTvBrowser = /SmartTV|SMART-TV|HbbTV|TV|Tizen|Web0S|WebOS|YaBrowser|Yandex|Hartens|YaOS/i.test(userAgent);
+  const isTouchDevice = typeof window !== 'undefined' && (
+    'ontouchstart' in window || navigator.maxTouchPoints > 0
+  );
 
   // Fetch real-time torrent statistics
   const fetchTorrentStats = useCallback(async () => {
@@ -153,16 +249,15 @@ const VideoPlayer = ({
         }
       }
       
-      const bufferedPercent = (bufferedEnd / duration) * 100;
+      const bufferedPercent = duration > 0 ? (bufferedEnd / duration) * 100 : 0;
       const totalBuffered = bufferAhead + bufferBehind;
       
       setBuffered(bufferedPercent);
-      setBufferRanges(ranges);
       setBufferVisualization({
         ahead: bufferAhead,
         behind: bufferBehind,
         total: totalBuffered,
-        percentage: Math.round((totalBuffered / duration) * 100)
+        percentage: duration > 0 ? Math.round((totalBuffered / duration) * 100) : 0
       });
       
       // Calculate buffer health for instant play decisions
@@ -199,7 +294,8 @@ const VideoPlayer = ({
     try {
       const response = await fetch(config.getTorrentUrl(torrentHash, 'files'));
       if (response.ok) {
-        const files = await response.json();
+        const payload = await response.json();
+        const files = Array.isArray(payload) ? payload : (payload.files || []);
         console.log('VideoPlayer: Fetched files:', files.length);
         
         // Filter subtitle files (common extensions)
@@ -323,7 +419,7 @@ const VideoPlayer = ({
   // Load online subtitle
   const loadOnlineSubtitle = useCallback(async (subtitle) => {
     try {
-      console.log(`📥 Loading online subtitle: ${subtitle.language} from ${subtitle.source}`);
+      console.log(`Loading online subtitle: ${subtitle.language} from ${subtitle.source}`);
       
       const downloadUrl = `/api/subtitles/download?url=${encodeURIComponent(subtitle.url)}&language=${encodeURIComponent(subtitle.language)}`;
       const response = await fetch(downloadUrl);
@@ -352,7 +448,7 @@ const VideoPlayer = ({
       
       videoRef.current.appendChild(track);
       
-      console.log(`✅ Loaded online subtitle: ${subtitle.language}`);
+      console.log(`Loaded online subtitle: ${subtitle.language}`);
       
     } catch (error) {
       console.error('Error loading online subtitle:', error);
@@ -390,14 +486,26 @@ const VideoPlayer = ({
     if (!video) return;
 
     const handleLoadedMetadata = () => {
-      setDuration(video.duration);
+      const offset = streamOffsetRef.current;
+      if (Number.isFinite(video.duration) && video.duration > 0) {
+        if (isCompatibleAudio && originalDurationRef.current > 0) {
+          setDuration(originalDurationRef.current);
+        } else if (offset === 0) {
+          originalDurationRef.current = video.duration;
+          setDuration(video.duration);
+        } else if (!originalDurationRef.current) {
+          originalDurationRef.current = offset + video.duration;
+          setDuration(originalDurationRef.current);
+        }
+      }
       setIsLoading(false);
       
       // Set initial time after metadata is loaded
-      if (initialTime > 0 && !hasAppliedInitialTime) {
-        console.log('⏰ Resuming video at:', initialTime + 's');
+      if (initialTime > 0 && !hasAppliedInitialTime && offset === 0) {
+        console.log('Resuming video at:', initialTime + 's');
         video.currentTime = initialTime;
         setCurrentTime(initialTime);
+        currentTimeRef.current = initialTime;
         setHasAppliedInitialTime(true);
       }
       
@@ -406,7 +514,7 @@ const VideoPlayer = ({
       if (torrentHash && fileIndex !== null && !hasShownResumeDialog && initialTime === 0) {
         const resumeInfo = progressService.shouldResumeVideo(torrentHash, fileIndex);
         if (resumeInfo) {
-          console.log('📋 Showing resume dialog for:', resumeInfo);
+          console.log('Showing resume dialog for:', resumeInfo);
           setResumeData(resumeInfo);
           setShowResumeDialog(true);
         }
@@ -415,16 +523,18 @@ const VideoPlayer = ({
     };
 
     const handleTimeUpdate = () => {
-      const newTime = video.currentTime;
+      const newTime = streamOffsetRef.current + video.currentTime;
+      currentTimeRef.current = newTime;
       setCurrentTime(newTime);
       updateBufferedProgress();
       onTimeUpdate?.(newTime);
       
       // Save progress every 5 seconds
-      if (torrentHash && fileIndex !== null && video.duration > 0) {
+      const totalDuration = originalDurationRef.current || duration;
+      if (torrentHash && fileIndex !== null && totalDuration > 0) {
         const now = Date.now();
         if (!video.progressSaveTimer || now - video.progressSaveTimer > 5000) {
-          progressService.saveProgress(torrentHash, fileIndex, newTime, video.duration, title);
+          progressService.saveProgress(torrentHash, fileIndex, newTime, totalDuration, title);
           video.progressSaveTimer = now;
         }
       }
@@ -443,11 +553,17 @@ const VideoPlayer = ({
     const handleCanPlay = () => {
       setIsLoading(false);
       // Only try setting initial time when the video can play if we haven't done it yet
-      if (initialTime > 0 && !hasAppliedInitialTime && Math.abs(video.currentTime - initialTime) > 1) {
-        console.log('🎬 CanPlay: Resuming video at:', initialTime + 's');
+      if (initialTime > 0 && !hasAppliedInitialTime && streamOffsetRef.current === 0 && Math.abs(video.currentTime - initialTime) > 1) {
+        console.log('CanPlay: resuming video at:', initialTime + 's');
         video.currentTime = initialTime;
         setCurrentTime(initialTime);
+        currentTimeRef.current = initialTime;
         setHasAppliedInitialTime(true);
+      }
+      video.playbackRate = playbackRate;
+      if (pendingPlaybackRef.current) {
+        pendingPlaybackRef.current = false;
+        video.play().catch(() => {});
       }
     };
     const handleCanPlayThrough = () => setIsLoading(false);
@@ -467,7 +583,7 @@ const VideoPlayer = ({
       video.removeEventListener('canplay', handleCanPlay);
       video.removeEventListener('canplaythrough', handleCanPlayThrough);
     };
-  }, [src, initialTime, onTimeUpdate, onProgress, updateBufferedProgress, torrentHash, fileIndex, title, hasShownResumeDialog, hasAppliedInitialTime]);
+  }, [videoSrc, duration, initialTime, onTimeUpdate, onProgress, updateBufferedProgress, torrentHash, fileIndex, title, hasShownResumeDialog, hasAppliedInitialTime, playbackRate, isCompatibleAudio]);
 
   // Mobile video initialization
   useEffect(() => {
@@ -479,22 +595,22 @@ const VideoPlayer = ({
     if (isMobile) {
       // Mobile-specific video event handlers
       const handleLoadStart = () => {
-        console.log('📱 Mobile: Video load started');
+        console.log('Mobile video load started');
         setIsLoading(true);
       };
 
       const handleCanPlay = () => {
-        console.log('📱 Mobile: Video can play');
+        console.log('Mobile video can play');
         setIsLoading(false);
       };
 
       const handleWaiting = () => {
-        console.log('📱 Mobile: Video waiting for data');
+        console.log('Mobile video waiting for data');
         setIsLoading(true);
       };
 
       const handleStalled = () => {
-        console.log('📱 Mobile: Video stalled, retrying...');
+        console.log('Mobile video stalled, retrying...');
         setIsLoading(true);
         // On mobile, try to reload the video source if it stalls
         setTimeout(() => {
@@ -505,7 +621,7 @@ const VideoPlayer = ({
       };
 
       const handleError = (e) => {
-        console.error('📱 Mobile video error:', e);
+        console.error('Mobile video error:', e);
         setIsLoading(false);
         // Try to recover from error
         setTimeout(() => {
@@ -532,21 +648,23 @@ const VideoPlayer = ({
   // Fullscreen event listeners for mobile compatibility
   useEffect(() => {
     const handleFullscreenChange = () => {
-      const isCurrentlyFullscreen = !!(
+      const fullscreenElement =
         document.fullscreenElement ||
         document.webkitFullscreenElement ||
         document.mozFullScreenElement ||
-        document.msFullscreenElement
-      );
-      setIsFullscreen(isCurrentlyFullscreen);
-    };
-
-    // iOS Safari specific fullscreen events
-    const handleWebkitFullscreenChange = () => {
-      const video = videoRef.current;
-      if (video) {
-        const isVideoFullscreen = video.webkitDisplayingFullscreen;
-        setIsFullscreen(isVideoFullscreen);
+        document.msFullscreenElement;
+      const isCurrentlyFullscreen = !!fullscreenElement;
+      if (isCurrentlyFullscreen) {
+        nativeFullscreenActiveRef.current = true;
+        fullscreenRequestedRef.current = true;
+        setIsFullscreen(true);
+        setShowControls(true);
+      } else if (nativeFullscreenActiveRef.current) {
+        nativeFullscreenActiveRef.current = false;
+        fullscreenRequestedRef.current = false;
+        setIsFullscreen(false);
+      } else if (!fullscreenRequestedRef.current) {
+        setIsFullscreen(false);
       }
     };
 
@@ -558,9 +676,19 @@ const VideoPlayer = ({
     
     // iOS Safari specific
     const video = videoRef.current;
+    const handleNativeVideoFullscreenStart = () => {
+      nativeFullscreenActiveRef.current = true;
+      fullscreenRequestedRef.current = true;
+      setIsFullscreen(true);
+    };
+    const handleNativeVideoFullscreenEnd = () => {
+      nativeFullscreenActiveRef.current = false;
+      fullscreenRequestedRef.current = false;
+      setIsFullscreen(false);
+    };
     if (video) {
-      video.addEventListener('webkitbeginfullscreen', () => setIsFullscreen(true));
-      video.addEventListener('webkitendfullscreen', () => setIsFullscreen(false));
+      video.addEventListener('webkitbeginfullscreen', handleNativeVideoFullscreenStart);
+      video.addEventListener('webkitendfullscreen', handleNativeVideoFullscreenEnd);
     }
 
     return () => {
@@ -570,8 +698,8 @@ const VideoPlayer = ({
       document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
       
       if (video) {
-        video.removeEventListener('webkitbeginfullscreen', () => setIsFullscreen(true));
-        video.removeEventListener('webkitendfullscreen', () => setIsFullscreen(false));
+        video.removeEventListener('webkitbeginfullscreen', handleNativeVideoFullscreenStart);
+        video.removeEventListener('webkitendfullscreen', handleNativeVideoFullscreenEnd);
       }
     };
   }, []);
@@ -608,6 +736,20 @@ const VideoPlayer = ({
     };
 
     optimizeMobileViewport();
+  }, [isFullscreen]);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const previousOverscroll = document.body.style.overscrollBehavior;
+    document.body.style.overflow = 'hidden';
+    document.body.style.overscrollBehavior = 'none';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.overscrollBehavior = previousOverscroll;
+    };
   }, [isFullscreen]);
 
   // Optimized play/pause for mobile and instant streaming
@@ -746,10 +888,24 @@ const VideoPlayer = ({
     }
   };
 
+  const seekToTime = (targetTime) => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const safeTarget = Math.max(0, Math.min(duration || Number.MAX_SAFE_INTEGER, targetTime));
+    if (isCompatibleAudio && selectedAudioTrack !== null) {
+      startCompatibleAudio(selectedAudioTrack, safeTarget, !video.paused);
+    } else {
+      video.currentTime = safeTarget;
+      currentTimeRef.current = safeTarget;
+      setCurrentTime(safeTarget);
+    }
+  };
+
   // Resume dialog functions
   const handleResumeVideo = () => {
-    if (resumeData && videoRef.current) {
-      videoRef.current.currentTime = resumeData.currentTime;
+    if (resumeData) {
+      seekToTime(resumeData.currentTime);
       setShowResumeDialog(false);
       setResumeData(null);
     }
@@ -757,19 +913,29 @@ const VideoPlayer = ({
 
   const handleStartFromBeginning = () => {
     if (videoRef.current) {
-      videoRef.current.currentTime = 0;
+      seekToTime(0);
       setShowResumeDialog(false);
       setResumeData(null);
     }
   };
 
   const handleSeek = (e) => {
-    const video = videoRef.current;
     const progressBar = e.currentTarget;
     const rect = progressBar.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const newTime = (clickX / rect.width) * duration;
-    video.currentTime = newTime;
+    seekToTime(newTime);
+  };
+
+  const skip = (seconds) => {
+    seekToTime(currentTimeRef.current + seconds);
+  };
+
+  const changePlaybackRate = (rate) => {
+    const video = videoRef.current;
+    if (video) video.playbackRate = rate;
+    setPlaybackRate(rate);
+    setShowSettings(false);
   };
 
   const toggleMute = () => {
@@ -786,103 +952,73 @@ const VideoPlayer = ({
     setIsMuted(newVolume === 0);
   };
 
-  const toggleFullscreen = () => {
-    const container = videoRef.current.parentElement;
+  const toggleFullscreen = async () => {
     const video = videoRef.current;
-    
-    // Detect mobile devices
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-                    ('ontouchstart' in window) || 
-                    (navigator.maxTouchPoints > 0);
-    
-    if (!isFullscreen) {
-      // Try to enter fullscreen
-      if (isMobile) {
-        // For mobile devices, especially iOS Safari
-        if (video.webkitEnterFullscreen) {
-          // iOS Safari - use video element fullscreen (hides address bar)
-          video.webkitEnterFullscreen();
-        } else if (video.requestFullscreen) {
-          // Android Chrome/Firefox
-          video.requestFullscreen();
-        } else if (container.webkitRequestFullscreen) {
-          // Fallback for mobile Safari
-          container.webkitRequestFullscreen();
-        } else {
-          // Fallback: simulate fullscreen with CSS
-          setIsFullscreen(true);
-          // Trigger viewport change to hide address bar
-          window.scrollTo(0, 1);
-          setTimeout(() => window.scrollTo(0, 0), 100);
-        }
-      } else {
-        // Desktop fullscreen
+    const container = containerRef.current;
+    if (!video || !container) return;
+
+    const fullscreenElement = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+    const isVideoFullscreen = video.webkitDisplayingFullscreen;
+
+    try {
+      if (!fullscreenElement && !isVideoFullscreen && !isFullscreen) {
+        fullscreenRequestedRef.current = true;
+        // Keep our custom controls visible. Native <video> fullscreen hides audio/subtitle menus on TV browsers.
         if (container.requestFullscreen) {
-          container.requestFullscreen();
+          await container.requestFullscreen();
         } else if (container.webkitRequestFullscreen) {
           container.webkitRequestFullscreen();
         } else if (container.mozRequestFullScreen) {
           container.mozRequestFullScreen();
         } else if (container.msRequestFullscreen) {
           container.msRequestFullscreen();
+        } else if (!isTvBrowser && video.webkitEnterFullscreen) {
+          video.webkitEnterFullscreen();
+        } else {
+          setIsFullscreen(true);
+          window.scrollTo(0, 1);
         }
-      }
-      
-      if (!isMobile || !video.webkitEnterFullscreen) {
         setIsFullscreen(true);
-      }
-    } else {
-      // Try to exit fullscreen
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      } else if (document.webkitExitFullscreen) {
-        document.webkitExitFullscreen();
-      } else if (document.mozCancelFullScreen) {
-        document.mozCancelFullScreen();
-      } else if (document.msExitFullscreen) {
-        document.msExitFullscreen();
-      } else if (video.webkitExitFullscreen) {
-        // iOS Safari
-        video.webkitExitFullscreen();
+        setShowControls(true);
+        requestAnimationFrame(() => container.focus({ preventScroll: true }));
+        setTimeout(() => {
+          const nativeFullscreen =
+            document.fullscreenElement ||
+            document.webkitFullscreenElement ||
+            document.mozFullScreenElement ||
+            document.msFullscreenElement ||
+            video.webkitDisplayingFullscreen;
+          if (!nativeFullscreen && fullscreenRequestedRef.current) setIsFullscreen(true);
+        }, 250);
       } else {
-        // CSS fullscreen fallback
+        fullscreenRequestedRef.current = false;
+        if (fullscreenElement && document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if (fullscreenElement && document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        } else if (isVideoFullscreen && video.webkitExitFullscreen) {
+          video.webkitExitFullscreen();
+        }
         setIsFullscreen(false);
       }
-      
-      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-        setIsFullscreen(false);
-      }
+    } catch (error) {
+      console.warn('Fullscreen request failed, using CSS fallback:', error);
+      fullscreenRequestedRef.current = !isFullscreen;
+      setIsFullscreen(!isFullscreen);
+      setShowControls(true);
     }
   };
 
-  const skip = (seconds) => {
-    const video = videoRef.current;
-    video.currentTime = Math.max(0, Math.min(duration, video.currentTime + seconds));
-  };
-
-  const changePlaybackRate = (rate) => {
-    const video = videoRef.current;
-    video.playbackRate = rate;
-    setPlaybackRate(rate);
-    setShowSettings(false);
-  };
-
-  // Double-tap handler for mobile devices
+  // A single touch reveals controls; a double touch toggles fullscreen.
   const handleVideoTap = () => {
     const now = Date.now();
-    const tapInterval = 300; // milliseconds
+    const tapInterval = 300;
     
     if (now - lastTapTimeRef.current < tapInterval) {
       // Double-tap detected
       tapCountRef.current++;
       if (tapCountRef.current === 2) {
-        // On mobile, double-tap toggles fullscreen
-        if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
-          toggleFullscreen();
-        } else {
-          // On desktop, double-click toggles fullscreen
-          toggleFullscreen();
-        }
+        toggleFullscreen();
         tapCountRef.current = 0;
       }
     } else {
@@ -890,8 +1026,11 @@ const VideoPlayer = ({
       tapCountRef.current = 1;
       setTimeout(() => {
         if (tapCountRef.current === 1) {
-          // Single tap action - toggle play/pause
-          togglePlay();
+          if (isTouchDevice) {
+            showControlsTemporarily();
+          } else {
+            togglePlay();
+          }
         }
         tapCountRef.current = 0;
       }, tapInterval);
@@ -955,31 +1094,136 @@ const VideoPlayer = ({
   };
 
   const formatTime = (time) => {
+    if (!Number.isFinite(time) || time < 0) return '0:00';
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const showControlsTemporarily = () => {
-    setShowControls(true);
-    clearTimeout(controlsTimeoutRef.current);
-    controlsTimeoutRef.current = setTimeout(() => {
-      if (isPlaying) setShowControls(false);
-    }, 3000);
+  const formatAudioTrack = (track) => {
+    const languages = {
+      rus: 'Русский',
+      eng: 'Английский',
+      kaz: 'Казахский',
+      uzb: 'Узбекский',
+      und: 'Без языка'
+    };
+    const parts = [
+      languages[track.language] || track.language?.toUpperCase(),
+      track.title,
+      track.channels ? `${track.channels} каналов` : '',
+      track.codec?.toUpperCase()
+    ].filter(Boolean);
+    return parts.join(' · ') || `Дорожка ${track.audioIndex + 1}`;
   };
+
+  const getTimelinePercent = (time) => {
+    if (!duration || Number.isNaN(duration) || duration <= 0) return 0;
+    return Math.max(0, Math.min(100, (time / duration) * 100));
+  };
+
+  const hideControlsAfterDelay = useCallback(() => {
+    clearTimeout(controlsTimeoutRef.current);
+    if (showSettings || showSubtitleMenu) return;
+
+    controlsTimeoutRef.current = setTimeout(() => {
+      const video = videoRef.current;
+      if (video && !video.paused) setShowControls(false);
+    }, isTvBrowser ? 4500 : 3000);
+  }, [isTvBrowser, showSettings, showSubtitleMenu]);
+
+  const showControlsTemporarily = useCallback(() => {
+    setShowControls(true);
+    hideControlsAfterDelay();
+  }, [hideControlsAfterDelay]);
+
+  useEffect(() => {
+    if (showSettings || showSubtitleMenu || !isPlaying) {
+      clearTimeout(controlsTimeoutRef.current);
+      setShowControls(true);
+    } else {
+      hideControlsAfterDelay();
+    }
+
+    return () => clearTimeout(controlsTimeoutRef.current);
+  }, [isPlaying, isFullscreen, showSettings, showSubtitleMenu, hideControlsAfterDelay]);
+
+  const handlePlayerKeyDown = (event) => {
+    const target = event.target;
+    const isInteractive = target instanceof Element && Boolean(target.closest('button, a, input'));
+    const isBackKey = ['Escape', 'BrowserBack', 'GoBack'].includes(event.key) || event.keyCode === 461;
+
+    showControlsTemporarily();
+
+    if (isBackKey) {
+      event.preventDefault();
+      if (showSettings || showSubtitleMenu) {
+        setShowSettings(false);
+        setShowSubtitleMenu(false);
+      } else if (isFullscreen) {
+        toggleFullscreen();
+      } else if (onClose) {
+        onClose();
+      }
+      return;
+    }
+
+    if ((showSettings || showSubtitleMenu) && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+      event.preventDefault();
+      const menuSelector = showSettings ? '.settings-dropdown' : '.subtitle-dropdown';
+      const focusable = Array.from(
+        containerRef.current?.querySelectorAll(`${menuSelector} button:not(:disabled)`) || []
+      );
+      if (focusable.length > 0) {
+        const currentIndex = focusable.indexOf(document.activeElement);
+        const step = event.key === 'ArrowDown' || event.key === 'ArrowRight' ? 1 : -1;
+        const nextIndex = currentIndex < 0
+          ? 0
+          : (currentIndex + step + focusable.length) % focusable.length;
+        focusable[nextIndex].focus({ preventScroll: true });
+      }
+      return;
+    }
+
+    if (!isInteractive && !showSettings && !showSubtitleMenu) {
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        skip(-10);
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        skip(10);
+      } else if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        togglePlay();
+      } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        containerRef.current?.querySelector('.play-button')?.focus();
+      }
+    }
+  };
+
+  const audioTrackPageCount = Math.max(1, Math.ceil(availableAudioTracks.length / AUDIO_TRACKS_PER_PAGE));
+  const visibleAudioTracks = availableAudioTracks.slice(
+    audioTrackPage * AUDIO_TRACKS_PER_PAGE,
+    (audioTrackPage + 1) * AUDIO_TRACKS_PER_PAGE
+  );
 
   return (
     <div 
-      className={`video-player-container ${isFullscreen ? 'fullscreen' : ''} ${isFullscreen && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ? 'mobile-fullscreen' : ''}`}
+      ref={containerRef}
+      tabIndex={0}
+      className={`video-player-container ${isFullscreen ? 'fullscreen' : ''} ${isTvBrowser ? 'tv-mode' : ''} ${(showControls || showSettings || showSubtitleMenu) ? 'controls-visible' : 'controls-hidden'} ${isFullscreen && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent) ? 'mobile-fullscreen' : ''}`}
       onMouseMove={showControlsTemporarily}
-      onMouseLeave={() => isPlaying && setShowControls(false)}
+      onPointerDown={showControlsTemporarily}
+      onKeyDown={handlePlayerKeyDown}
+      onMouseLeave={() => isPlaying && !showSettings && !showSubtitleMenu && setShowControls(false)}
     >
       {/* Close Button - always visible on the right */}
       {onClose && (
         <button 
           className="video-close-button"
           onClick={onClose}
-          title="Close video"
+          title="Закрыть видео"
         >
           <X size={24} />
         </button>
@@ -987,14 +1231,13 @@ const VideoPlayer = ({
       
       <video
         ref={videoRef}
-        src={src}
+        src={videoSrc}
         className="video-element"
         onClick={handleVideoTap}
-        onDoubleClick={toggleFullscreen}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
-        playsInline={false}
-        webkit-playsinline="false"
+        playsInline
+        webkit-playsinline="true"
         controls={false}
         preload="none"
         crossOrigin="anonymous"
@@ -1006,7 +1249,7 @@ const VideoPlayer = ({
       {isLoading && (
         <div className="video-loading">
           <Loader2 className="loading-spinner" />
-          <span>Buffering...</span>
+          <span>Буферизация...</span>
         </div>
       )}
 
@@ -1023,8 +1266,8 @@ const VideoPlayer = ({
                 <WifiOff className="status-icon disconnected" size={16} />
               )}
               <span className={`status-text ${networkStatus}`}>
-                {networkStatus === 'connected' ? 'Connected' : 
-                 networkStatus === 'seeking' ? 'Seeking Peers' : 'Disconnected'}
+                {networkStatus === 'connected' ? 'Подключено' :
+                 networkStatus === 'seeking' ? 'Поиск пиров' : 'Нет соединения'}
               </span>
             </div>
             {/* Only overlay minimize button */}
@@ -1034,7 +1277,8 @@ const VideoPlayer = ({
                 console.log('Minimize overlay clicked');
                 setShowTorrentStats(false);
               }}
-              title="Hide Stats Overlay"
+              title="Скрыть статистику торрента"
+              aria-label="Скрыть статистику торрента"
             >
               <Minimize2 size={14} />
             </button>
@@ -1043,13 +1287,13 @@ const VideoPlayer = ({
           <div className="stats-grid">
             <div className="stat-item">
               <Users size={14} />
-              <span className="stat-label">Peers</span>
+                <span className="stat-label">Пиры</span>
               <span className="stat-value">{torrentStats.peers}</span>
             </div>
             
             <div className="stat-item">
               <TrendingDown size={14} />
-              <span className="stat-label">Download</span>
+                <span className="stat-label">Загрузка</span>
               <span className="stat-value">
                 {(torrentStats.downloadSpeed / 1024 / 1024).toFixed(1)} MB/s
               </span>
@@ -1057,7 +1301,7 @@ const VideoPlayer = ({
             
             <div className="stat-item">
               <TrendingUp size={14} />
-              <span className="stat-label">Upload</span>
+                <span className="stat-label">Отдача</span>
               <span className="stat-value">
                 {(torrentStats.uploadSpeed / 1024 / 1024).toFixed(1)} MB/s
               </span>
@@ -1065,14 +1309,14 @@ const VideoPlayer = ({
             
             <div className="stat-item">
               <Download size={14} />
-              <span className="stat-label">Progress</span>
+                <span className="stat-label">Прогресс</span>
               <span className="stat-value">{torrentStats.progress.toFixed(1)}%</span>
             </div>
           </div>
           
           {/* Buffer Health Indicator */}
           <div className="buffer-health">
-            <div className="buffer-label">Buffer Health</div>
+            <div className="buffer-label">Состояние буфера</div>
             <div className="buffer-bar">
               <div 
                 className={`buffer-fill ${bufferHealth > 70 ? 'good' : bufferHealth > 30 ? 'medium' : 'poor'}`}
@@ -1089,13 +1333,14 @@ const VideoPlayer = ({
         <button 
           className="stats-show-button"
           onClick={toggleTorrentStats}
-          title="Show torrent stats"
+          title="Показать статистику торрента"
+          aria-label="Показать статистику торрента"
         >
           <Activity size={16} />
         </button>
       )}
 
-      <div className={`video-controls ${showControls ? 'visible' : 'hidden'}`}>
+      <div className={`video-controls ${(showControls || showSettings || showSubtitleMenu) ? 'visible' : 'hidden'}`}>
         <div className="controls-background" />
         
         {/* Enhanced Progress Bar with Multiple Buffer Ranges */}
@@ -1128,13 +1373,13 @@ const VideoPlayer = ({
             {/* Played progress */}
             <div 
               className="progress-played" 
-              style={{ width: `${(currentTime / duration) * 100}%` }}
+              style={{ width: `${getTimelinePercent(currentTime)}%` }}
             />
             
             {/* Current position thumb */}
             <div 
               className="progress-thumb"
-              style={{ left: `${(currentTime / duration) * 100}%` }}
+              style={{ left: `${getTimelinePercent(currentTime)}%` }}
             />
             
             {/* Torrent download progress overlay */}
@@ -1142,7 +1387,7 @@ const VideoPlayer = ({
               <div 
                 className="progress-torrent"
                 style={{ width: `${torrentStats.progress}%` }}
-                title={`Torrent downloaded: ${torrentStats.progress.toFixed(1)}%`}
+                title={`Торрент загружен: ${torrentStats.progress.toFixed(1)}%`}
               />
             )}
           </div>
@@ -1152,13 +1397,13 @@ const VideoPlayer = ({
             {formatTime(currentTime)} / {formatTime(duration)}
             {torrentStats.progress > 0 && (
               <span className="torrent-progress-text">
-                • Torrent: {torrentStats.progress.toFixed(1)}%
+                • Торрент: {torrentStats.progress.toFixed(1)}%
               </span>
             )}
             {bufferVisualization.percentage > 0 && (
               <span className="buffer-status">
-                • Buffer: {bufferVisualization.percentage}% 
-                {bufferVisualization.ahead > 0 && ` (${Math.round(bufferVisualization.ahead)}s ahead)`}
+                • Буфер: {bufferVisualization.percentage}%
+                {bufferVisualization.ahead > 0 && ` (${Math.round(bufferVisualization.ahead)} с вперёд)`}
               </span>
             )}
           </div>
@@ -1167,20 +1412,20 @@ const VideoPlayer = ({
         {/* Enhanced Buffer Status Overlay */}
         {(isLoading || (!isPlaying && bufferHealth < 100)) && (
           <div className={`buffer-status-overlay ${(isLoading || (!isPlaying && bufferHealth < 100)) ? 'visible' : ''}`}>
-            <div className="buffer-status-title">Video Buffer</div>
+            <div className="buffer-status-title">Буфер видео</div>
             <div className="buffer-status-content">
               <div className="buffer-info-row">
-                <span className="buffer-info-label">Buffer Level:</span>
+                <span className="buffer-info-label">Уровень буфера:</span>
                 <span className="buffer-info-value">{Math.round(bufferHealth)}%</span>
               </div>
               {bufferVisualization.ahead > 0 && (
                 <div className="buffer-info-row">
-                  <span className="buffer-info-label">Ready Time:</span>
+                  <span className="buffer-info-label">Готово вперёд:</span>
                   <span className="buffer-info-value">{Math.round(bufferVisualization.ahead)}s</span>
                 </div>
               )}
               <div className="buffer-health-display">
-                <div className="buffer-health-label">Buffer Health</div>
+                <div className="buffer-health-label">Состояние буфера</div>
                 <div className="buffer-health-bar">
                   <div 
                     className={`buffer-health-fill ${bufferHealth > 70 ? 'good' : bufferHealth > 30 ? 'medium' : 'poor'}`}
@@ -1188,7 +1433,7 @@ const VideoPlayer = ({
                   />
                 </div>
                 <div className={`buffer-health-text ${bufferHealth > 70 ? 'good' : bufferHealth > 30 ? 'medium' : 'poor'}`}>
-                  {bufferHealth > 70 ? 'Excellent' : bufferHealth > 30 ? 'Good' : 'Poor'}
+                  {bufferHealth > 70 ? 'Отлично' : bufferHealth > 30 ? 'Нормально' : 'Слабо'}
                 </div>
               </div>
             </div>
@@ -1198,20 +1443,40 @@ const VideoPlayer = ({
         {/* Main Controls */}
         <div className="controls-main">
           <div className="controls-left">
-            <button onClick={togglePlay} className="control-button play-button">
+            <button
+              onClick={togglePlay}
+              className="control-button play-button"
+              title={isPlaying ? 'Пауза' : 'Воспроизвести'}
+              aria-label={isPlaying ? 'Пауза' : 'Воспроизвести'}
+            >
               {isPlaying ? <Pause size={24} /> : <Play size={24} />}
             </button>
             
-            <button onClick={() => skip(-10)} className="control-button">
+            <button
+              onClick={() => skip(-10)}
+              className="control-button"
+              title="Назад на 10 секунд"
+              aria-label="Назад на 10 секунд"
+            >
               <SkipBack size={20} />
             </button>
             
-            <button onClick={() => skip(10)} className="control-button">
+            <button
+              onClick={() => skip(10)}
+              className="control-button"
+              title="Вперёд на 10 секунд"
+              aria-label="Вперёд на 10 секунд"
+            >
               <SkipForward size={20} />
             </button>
 
             <div className="volume-control">
-              <button onClick={toggleMute} className="control-button">
+              <button
+                onClick={toggleMute}
+                className="control-button"
+                title={isMuted ? 'Включить звук' : 'Выключить звук'}
+                aria-label={isMuted ? 'Включить звук' : 'Выключить звук'}
+              >
                 {isMuted || volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
               </button>
               <input
@@ -1238,9 +1503,18 @@ const VideoPlayer = ({
             {/* Subtitle Menu */}
             <div className="subtitle-menu">
               <button 
-                onClick={() => setShowSubtitleMenu(!showSubtitleMenu)} 
+                onClick={() => {
+                  const opening = !showSubtitleMenu;
+                  setShowSubtitleMenu(opening);
+                  setShowSettings(false);
+                  if (opening) {
+                    requestAnimationFrame(() => {
+                      containerRef.current?.querySelector('.subtitle-dropdown button')?.focus({ preventScroll: true });
+                    });
+                  }
+                }}
                 className={`control-button ${currentSubtitle ? 'active' : ''}`}
-                title="Subtitles"
+                title="Субтитры"
               >
                 <Subtitles size={20} />
               </button>
@@ -1248,7 +1522,7 @@ const VideoPlayer = ({
               {showSubtitleMenu && (
                 <div className="subtitle-dropdown">
                   <div className="subtitle-section">
-                    <span>Local Subtitles</span>
+                    <span>Локальные субтитры</span>
                     
                     {/* None option */}
                     <button
@@ -1256,7 +1530,7 @@ const VideoPlayer = ({
                       className={`subtitle-option ${!currentSubtitle ? 'active' : ''}`}
                     >
                       <Languages size={16} />
-                      Off
+                      Выкл.
                     </button>
                     
                     {/* Available subtitle tracks from torrent */}
@@ -1274,14 +1548,14 @@ const VideoPlayer = ({
                     {/* No local subtitles available */}
                     {availableSubtitles.length === 0 && (
                       <div className="no-subtitles">
-                        No local subtitles available
+                        Локальные субтитры не найдены
                       </div>
                     )}
                   </div>
 
                   {/* Online Subtitle Search */}
                   <div className="subtitle-section">
-                    <span>Online Search</span>
+                    <span>Поиск онлайн</span>
                     
                     {/* Search button */}
                     <button
@@ -1294,7 +1568,7 @@ const VideoPlayer = ({
                       ) : (
                         <Search size={16} />
                       )}
-                      {isSearchingOnline ? 'Searching...' : 'Search Online'}
+                      {isSearchingOnline ? 'Идёт поиск...' : 'Искать онлайн'}
                     </button>
                     
                     {/* Online subtitle results */}
@@ -1312,7 +1586,7 @@ const VideoPlayer = ({
                     {/* No online results message */}
                     {!isSearchingOnline && onlineSubtitles.length === 0 && availableSubtitles.length === 0 && (
                       <div className="no-subtitles">
-                        Click "Search Online" to find subtitles
+                        Нажмите «Искать онлайн», чтобы найти субтитры
                       </div>
                     )}
                   </div>
@@ -1320,13 +1594,13 @@ const VideoPlayer = ({
                   {/* Subtitle toggle when track is loaded */}
                   {currentSubtitle && (
                     <div className="subtitle-section">
-                      <span>Display</span>
+                      <span>Показ</span>
                       <button
                         onClick={toggleSubtitles}
                         className={`subtitle-option ${subtitlesEnabled ? 'active' : ''}`}
                       >
                         <Subtitles size={16} />
-                        {subtitlesEnabled ? 'Hide' : 'Show'} Subtitles
+                        {subtitlesEnabled ? 'Скрыть' : 'Показать'} субтитры
                       </button>
                     </div>
                   )}
@@ -1336,8 +1610,21 @@ const VideoPlayer = ({
 
             <div className="settings-menu">
               <button 
-                onClick={() => setShowSettings(!showSettings)} 
+                onClick={() => {
+                  const opening = !showSettings;
+                  setShowSettings(opening);
+                  setShowSubtitleMenu(false);
+                  if (opening) {
+                    requestAnimationFrame(() => {
+                      const menu = containerRef.current?.querySelector('.settings-dropdown');
+                      const selected = menu?.querySelector('.settings-option[aria-pressed="true"]');
+                      (selected || menu?.querySelector('button'))?.focus({ preventScroll: true });
+                    });
+                  }
+                }}
                 className="control-button"
+                title="Настройки аудио и скорости"
+                aria-label="Настройки аудио и скорости"
               >
                 <Settings size={20} />
               </button>
@@ -1345,26 +1632,74 @@ const VideoPlayer = ({
               {showSettings && (
                 <div className="settings-dropdown">
                   <div className="settings-section">
-                    <span>Playback Speed</span>
-                    {[0.5, 0.75, 1, 1.25, 1.5, 2].map(rate => (
+                    <span><Languages size={16} /> Аудиодорожка</span>
+                    <div className="settings-note">
+                      {isCompatibleAudio
+                        ? 'Совместимый звук AAC включён'
+                        : 'Несовместимый звук будет преобразован в AAC автоматически'}
+                    </div>
+                    {availableAudioTracks.length > 0 ? visibleAudioTracks.map(track => (
                       <button
-                        key={rate}
-                        onClick={() => changePlaybackRate(rate)}
-                        className={`settings-option ${playbackRate === rate ? 'active' : ''}`}
+                        key={track.audioIndex}
+                        onClick={() => selectAudioTrack(track)}
+                        className={`settings-option ${selectedAudioTrack === track.audioIndex ? 'active' : ''}`}
+                        aria-pressed={selectedAudioTrack === track.audioIndex}
                       >
-                        {rate}x
+                        {formatAudioTrack(track)}
                       </button>
-                    ))}
+                    )) : (
+                      <div className="settings-note">{audioTrackError || 'Сканирование дорожек...'}</div>
+                    )}
+                    {audioTrackPageCount > 1 && (
+                      <div className="audio-track-pagination">
+                        <button
+                          type="button"
+                          className="settings-page-button"
+                          onClick={() => setAudioTrackPage(page => Math.max(0, page - 1))}
+                          disabled={audioTrackPage === 0}
+                          title="Предыдущие дорожки"
+                          aria-label="Предыдущие дорожки"
+                        >
+                          <ChevronLeft size={22} />
+                        </button>
+                        <span>{audioTrackPage + 1} / {audioTrackPageCount}</span>
+                        <button
+                          type="button"
+                          className="settings-page-button"
+                          onClick={() => setAudioTrackPage(page => Math.min(audioTrackPageCount - 1, page + 1))}
+                          disabled={audioTrackPage >= audioTrackPageCount - 1}
+                          title="Следующие дорожки"
+                          aria-label="Следующие дорожки"
+                        >
+                          <ChevronRight size={22} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="settings-section">
+                    <span>Скорость воспроизведения</span>
+                    <div className="playback-rate-options">
+                      {[0.5, 0.75, 1, 1.25, 1.5, 2].map(rate => (
+                        <button
+                          key={rate}
+                          onClick={() => changePlaybackRate(rate)}
+                          className={`settings-option ${playbackRate === rate ? 'active' : ''}`}
+                          aria-pressed={playbackRate === rate}
+                        >
+                          {rate}x
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
             </div>
 
             <a 
-              href={src} 
+              href={videoSrc}
               download 
               className="control-button download-button"
-              title="Download video"
+              title="Скачать видео"
             >
               <Download size={20} />
             </a>
@@ -1372,7 +1707,7 @@ const VideoPlayer = ({
             <button 
               onClick={toggleFullscreen} 
               className="control-button fullscreen-button"
-              title="Fullscreen (or double-tap video)"
+              title="Во весь экран (или двойное нажатие по видео)"
             >
               {isFullscreen ? <Minimize2 size={20} /> : <Maximize size={20} />}
             </button>
@@ -1384,11 +1719,11 @@ const VideoPlayer = ({
       {showResumeDialog && resumeData && (
         <div className="resume-dialog-overlay">
           <div className="resume-dialog">
-            <h3>Resume Video</h3>
-            <p>Do you want to continue from where you left off?</p>
+            <h3>Продолжить просмотр</h3>
+            <p>Продолжить с места, где вы остановились?</p>
             <div className="resume-info">
               <div className="resume-time">
-                Last watched: {progressService.formatTime(resumeData.currentTime)}
+                Последняя позиция: {progressService.formatTime(resumeData.currentTime)}
               </div>
               <div className="resume-date">
                 {progressService.formatRelativeTime(resumeData.lastWatched)}
@@ -1399,13 +1734,13 @@ const VideoPlayer = ({
                 onClick={handleStartFromBeginning}
                 className="resume-button secondary"
               >
-                Start from Beginning
+                С начала
               </button>
               <button 
                 onClick={handleResumeVideo}
                 className="resume-button primary"
               >
-                Resume at {progressService.formatTime(resumeData.currentTime)}
+                Продолжить с {progressService.formatTime(resumeData.currentTime)}
               </button>
             </div>
           </div>

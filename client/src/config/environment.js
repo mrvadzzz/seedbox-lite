@@ -1,10 +1,8 @@
-/**
- * Environment Configuration
- * Provides centralized access to environment variables
- */
-
-// Get API base URL from environment variables
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+const configuredApiUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+const browserApiUrl = typeof window === 'undefined'
+  ? 'http://localhost:3001'
+  : `${window.location.protocol}//${window.location.hostname}:3001`;
+const API_BASE_URL = configuredApiUrl || browserApiUrl;
 
 // Remove trailing slash if present
 const normalizeUrl = (url) => url.endsWith('/') ? url.slice(0, -1) : url;
@@ -38,9 +36,8 @@ export const config = {
     `${normalizeUrl(API_BASE_URL)}/api/torrents/${infoHash}/files/${fileIndex}/download`,
 };
 
-// Log configuration in development
 if (config.isDevelopment) {
-  console.log('🔧 Environment Configuration:', {
+  console.log('Environment configuration:', {
     apiBaseUrl: config.apiBaseUrl,
     environment: config.isDevelopment ? 'development' : 'production'
   });

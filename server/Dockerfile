@@ -1,4 +1,4 @@
-# Multi-stage build for production
+﻿# Multi-stage build for production
 FROM node:18-alpine AS builder
 
 # Set working directory
@@ -20,7 +20,7 @@ RUN rm -rf node_modules/.cache
 FROM node:18-alpine AS production
 
 # Install curl for healthcheck
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl ffmpeg
 
 # Create app user
 RUN addgroup -g 1001 -S nodejs

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, ExternalLink, Edit, Trash2, Download, Upload, Move, ArrowUp, ArrowDown } from 'lucide-react';
+import { Search, Plus, ExternalLink, Edit, Trash2, Download, Upload, ArrowUp, ArrowDown } from 'lucide-react';
 import searchSourcesService from '../services/searchSourcesService';
 import './SearchSourcesPage.css';
 
@@ -49,7 +49,7 @@ const SearchSourcesPage = () => {
       setShowForm(false);
       loadSources();
     } catch (error) {
-      alert(`Error: ${error.message}`);
+      alert(`Ошибка: ${error.message}`);
     }
   };
 
@@ -65,7 +65,7 @@ const SearchSourcesPage = () => {
   };
 
   const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to delete this search source?')) {
+    if (window.confirm('Удалить этот источник поиска?')) {
       try {
         searchSourcesService.removeSource(id);
         
@@ -77,7 +77,7 @@ const SearchSourcesPage = () => {
         
         loadSources();
       } catch (error) {
-        alert(`Error: ${error.message}`);
+        alert(`Ошибка: ${error.message}`);
       }
     }
   };
@@ -111,7 +111,7 @@ const SearchSourcesPage = () => {
       searchSourcesService.reorderSources(sourceIds);
       loadSources();
     } catch (error) {
-      alert(`Error: ${error.message}`);
+      alert(`Ошибка: ${error.message}`);
     }
   };
 
@@ -160,7 +160,7 @@ const SearchSourcesPage = () => {
     } catch (error) {
       // Revert to original order if there was an error
       loadSources();
-      alert(`Error: ${error.message}`);
+      alert(`Ошибка: ${error.message}`);
     }
   };
 
@@ -181,9 +181,9 @@ const SearchSourcesPage = () => {
       setShowImportExport(false);
       setImportJson('');
       loadSources();
-      alert('Search sources imported successfully!');
+      alert('Источники поиска импортированы');
     } catch (error) {
-      alert(`Import error: ${error.message}`);
+      alert(`Ошибка импорта: ${error.message}`);
     }
   };
 
@@ -197,15 +197,15 @@ const SearchSourcesPage = () => {
       <div className="page-header">
         <h1>
           <Search size={28} />
-          Torrent Search Sources
+          Источники поиска торрентов
         </h1>
-        <p>Add, manage, and use your own torrent search websites</p>
+        <p>Добавляйте и открывайте свои сайты для поиска торрентов</p>
       </div>
 
       <div className="search-sources-container">
         <div className="sources-sidebar">
           <div className="sidebar-header">
-            <h2>Your Search Sources</h2>
+            <h2>Ваши источники</h2>
             <button 
               className="add-source-button" 
               onClick={() => { 
@@ -214,15 +214,15 @@ const SearchSourcesPage = () => {
                 setShowForm(true); 
               }}
             >
-              <Plus size={16} /> Add Source
+              <Plus size={16} /> Добавить
             </button>
           </div>
 
           <div className="sources-list">
             {sources.length === 0 ? (
               <div className="no-sources">
-                <p>No search sources added yet.</p>
-                <p>Click "Add Source" to get started!</p>
+                <p>Источников пока нет.</p>
+                <p>Нажмите «Добавить», чтобы создать первый.</p>
               </div>
             ) : (
               sources.map((source) => (
@@ -243,19 +243,19 @@ const SearchSourcesPage = () => {
                     </div>
                   </div>
                   <div className="source-actions">
-                    <button onClick={() => handleMoveSource(source.id, 'up')} title="Move Up">
+                    <button onClick={() => handleMoveSource(source.id, 'up')} title="Выше">
                       <ArrowUp size={16} />
                     </button>
-                    <button onClick={() => handleMoveSource(source.id, 'down')} title="Move Down">
+                    <button onClick={() => handleMoveSource(source.id, 'down')} title="Ниже">
                       <ArrowDown size={16} />
                     </button>
-                    <button onClick={() => handleOpenSource(source)} title="Open Search">
+                    <button onClick={() => handleOpenSource(source)} title="Открыть">
                       <ExternalLink size={16} />
                     </button>
-                    <button onClick={() => handleEdit(source)} title="Edit">
+                    <button onClick={() => handleEdit(source)} title="Изменить">
                       <Edit size={16} />
                     </button>
-                    <button onClick={() => handleDelete(source.id)} title="Delete">
+                    <button onClick={() => handleDelete(source.id)} title="Удалить">
                       <Trash2 size={16} />
                     </button>
                   </div>
@@ -266,14 +266,14 @@ const SearchSourcesPage = () => {
 
           <div className="sources-footer">
             <button className="import-button" onClick={() => handleImportExport('import')}>
-              <Upload size={16} /> Import Sources
+              <Upload size={16} /> Импорт
             </button>
             <button 
               className="export-button" 
               onClick={() => handleImportExport('export')}
               disabled={sources.length === 0}
             >
-              <Download size={16} /> Export Sources
+              <Download size={16} /> Экспорт
             </button>
           </div>
         </div>
@@ -281,17 +281,17 @@ const SearchSourcesPage = () => {
         <div className="sources-content">
           {showForm ? (
             <div className="source-form-container">
-              <h2>{editingSource ? 'Edit Search Source' : 'Add New Search Source'}</h2>
+              <h2>{editingSource ? 'Изменить источник' : 'Добавить источник'}</h2>
               <form className="source-form" onSubmit={handleSubmit}>
                 <div className="form-group">
-                  <label htmlFor="name">Name</label>
+                  <label htmlFor="name">Название</label>
                   <input
                     type="text"
                     id="name"
                     name="name"
                     value={formData.name}
                     onChange={handleFormChange}
-                    placeholder="e.g., My Search Site"
+                    placeholder="Например, мой поисковик"
                     required
                   />
                 </div>
@@ -307,23 +307,23 @@ const SearchSourcesPage = () => {
                     placeholder="https://example.com/search"
                     required
                   />
-                  <small>Enter the full website URL where you search for torrents</small>
+                  <small>Укажите полный адрес сайта, где вы ищете торренты</small>
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="description">Description (Optional)</label>
+                  <label htmlFor="description">Описание</label>
                   <input
                     type="text"
                     id="description"
                     name="description"
                     value={formData.description}
                     onChange={handleFormChange}
-                    placeholder="e.g., Movie torrents search"
+                    placeholder="Например, поиск фильмов"
                   />
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="icon">Icon</label>
+                  <label htmlFor="icon">Иконка</label>
                   <div className="icon-selector">
                     {availableIcons.map((icon) => (
                       <span 
@@ -339,10 +339,10 @@ const SearchSourcesPage = () => {
 
                 <div className="form-actions">
                   <button type="button" onClick={() => setShowForm(false)} className="cancel-button">
-                    Cancel
+                    Отмена
                   </button>
                   <button type="submit" className="save-button">
-                    {editingSource ? 'Update Source' : 'Add Source'}
+                    {editingSource ? 'Сохранить' : 'Добавить'}
                   </button>
                 </div>
               </form>
@@ -351,21 +351,21 @@ const SearchSourcesPage = () => {
             <div className="iframe-container">
               <div className="iframe-header">
                 <h2>
-                  {sources.find(s => s.id === activeSourceId)?.name || 'Search'}
+                  {sources.find(s => s.id === activeSourceId)?.name || 'Поиск'}
                 </h2>
                 <button onClick={closeIframe} className="close-iframe">
-                  Close
+                  Закрыть
                 </button>
               </div>
               <iframe 
                 src={iframeUrl} 
-                title="Torrent Search" 
+                title="Поиск торрентов"
                 className="search-iframe"
                 sandbox="allow-forms allow-scripts allow-same-origin allow-popups"
               />
               <div className="iframe-footer">
                 <p>
-                  <strong>Note:</strong> This is an external website. SeedBox Lite is not responsible for its content.
+                  <strong>Важно:</strong> это внешний сайт. SeedBox Lite не отвечает за его содержимое.
                 </p>
               </div>
             </div>
@@ -373,37 +373,37 @@ const SearchSourcesPage = () => {
             <div className="search-instructions">
               <div className="instructions-content">
                 <div className="instructions-icon">🔍</div>
-                <h2>Custom Torrent Search</h2>
-                <p>Add your preferred torrent search websites and access them directly within SeedBox Lite.</p>
+                <h2>Свой поиск торрентов</h2>
+                <p>Добавьте любимые поисковые сайты и открывайте их прямо из SeedBox Lite.</p>
                 
                 <div className="instruction-steps">
                   <div className="step">
                     <div className="step-number">1</div>
                     <div className="step-content">
-                      <h3>Add Search Sources</h3>
-                      <p>Click "Add Source" to add your preferred torrent search websites.</p>
+                      <h3>Добавьте источники</h3>
+                      <p>Нажмите «Добавить» и сохраните адрес нужного сайта.</p>
                     </div>
                   </div>
                   
                   <div className="step">
                     <div className="step-number">2</div>
                     <div className="step-content">
-                      <h3>Access Your Sources</h3>
-                      <p>Click on the external link icon to open any source in a secure iframe.</p>
+                      <h3>Откройте источник</h3>
+                      <p>Нажмите на иконку открытия, чтобы загрузить сайт во встроенном окне.</p>
                     </div>
                   </div>
                   
                   <div className="step">
                     <div className="step-number">3</div>
                     <div className="step-content">
-                      <h3>Find & Download</h3>
-                      <p>Search for content, copy magnet links, and paste them in the SeedBox Lite homepage.</p>
+                      <h3>Найдите и добавьте</h3>
+                      <p>Скопируйте magnet-ссылку и вставьте её на главной странице SeedBox Lite.</p>
                     </div>
                   </div>
                 </div>
                 
                 <div className="instructions-note">
-                  <p><strong>Privacy Note:</strong> All your search sources are saved locally on your device. We don't store or promote any specific torrent websites.</p>
+                  <p><strong>Приватность:</strong> источники поиска сохраняются только на вашем устройстве.</p>
                 </div>
               </div>
             </div>
@@ -414,18 +414,18 @@ const SearchSourcesPage = () => {
       {showImportExport && (
         <div className="modal-overlay">
           <div className="import-export-modal">
-            <h2>{importJson ? 'Export Search Sources' : 'Import Search Sources'}</h2>
+            <h2>{importJson ? 'Экспорт источников' : 'Импорт источников'}</h2>
             
             <div className="import-export-content">
               <textarea 
                 value={importJson} 
                 onChange={(e) => setImportJson(e.target.value)}
-                placeholder={importJson ? '' : 'Paste your search sources JSON here...'}
+                placeholder={importJson ? '' : 'Вставьте JSON с источниками поиска...'}
                 readOnly={!!importJson && importJson.length > 0}
               />
               
               <div className="format-help">
-                <h4>Format Example:</h4>
+                <h4>Пример формата:</h4>
                 <pre>{`[
   {
     "name": "Example Search",
@@ -439,12 +439,12 @@ const SearchSourcesPage = () => {
             
             <div className="modal-actions">
               <button onClick={() => setShowImportExport(false)} className="cancel-button">
-                Close
+                Закрыть
               </button>
               
               {!importJson && (
                 <button onClick={handleImport} className="import-button">
-                  Import
+                  Импортировать
                 </button>
               )}
               
@@ -453,12 +453,12 @@ const SearchSourcesPage = () => {
                   onClick={() => {
                     // Copy to clipboard
                     navigator.clipboard.writeText(importJson)
-                      .then(() => alert('Copied to clipboard!'))
-                      .catch(err => alert('Failed to copy: ' + err));
+                      .then(() => alert('Скопировано'))
+                      .catch(err => alert('Не удалось скопировать: ' + err));
                   }} 
                   className="copy-button"
                 >
-                  Copy to Clipboard
+                  Скопировать
                 </button>
               )}
             </div>

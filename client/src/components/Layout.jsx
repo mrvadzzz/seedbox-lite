@@ -15,10 +15,10 @@ const Layout = () => {
   });
 
   const navigationItems = [
-    { path: '/', icon: Home, label: 'Home' },
-    { path: '/recent', icon: Clock, label: 'Recent' },
-    { path: '/search', icon: Search, label: 'Search' },
-    { path: '/settings', icon: Settings, label: 'Settings' }
+    { path: '/', icon: Home, label: 'Главная' },
+    { path: '/recent', icon: Clock, label: 'Недавние' },
+    { path: '/search', icon: Search, label: 'Поиск' },
+    { path: '/settings', icon: Settings, label: 'Настройки' }
   ];
 
   useEffect(() => {
@@ -130,14 +130,14 @@ const Layout = () => {
             <Link to="/cache" className="cache-link">
               <div className="cache-header">
                 <HardDrive size={16} />
-                <span>Cache</span>
+                <span>Кеш</span>
               </div>
               <div className="cache-info">
                 <div className="cache-stat">
-                  <span>Size: {cacheStats.totalSizeFormatted}</span>
+                  <span>Размер: {cacheStats.totalSizeFormatted}</span>
                 </div>
                 <div className="cache-stat">
-                  <span>Torrents: {cacheStats.activeTorrents}</span>
+                  <span>Торренты: {cacheStats.activeTorrents}</span>
                 </div>
                 <div className="disk-usage-mini">
                   <div className="disk-bar-mini">
@@ -146,7 +146,7 @@ const Layout = () => {
                       style={{ width: `${cacheStats.cacheUsagePercentage || 0}%` }}
                     />
                   </div>
-                  <span>{(cacheStats.cacheUsagePercentage || 0).toFixed(1)}% of {cacheStats.totalDiskFormatted}</span>
+                  <span>{(cacheStats.cacheUsagePercentage || 0).toFixed(1)}% из {cacheStats.totalDiskFormatted}</span>
                 </div>
               </div>
             </Link>
@@ -157,7 +157,7 @@ const Layout = () => {
           <div className="sidebar-footer">
             <div className="app-info">
               <p>SeedBox Lite v1.0</p>
-              <p>Premium Streaming</p>
+              <p>Локальный стриминг</p>
             </div>
           </div>
         )}

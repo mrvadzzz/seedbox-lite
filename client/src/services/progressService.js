@@ -8,7 +8,29 @@ class ProgressService {
   getAllProgress() {
     try {
       const data = localStorage.getItem(this.storageKey);
-      return data ? JSON.parse(data) : {};
+      const parsed = data ? JSON.parse(data) : {};
+
+      return Object.fromEntries(Object.entries(parsed).map(([key, progress]) => {
+        const currentTime = Number.isFinite(Number(progress.currentTime))
+          ? Math.max(0, Number(progress.currentTime))
+          : 0;
+        const storedDuration = Number.isFinite(Number(progress.duration))
+          ? Math.max(0, Number(progress.duration))
+          : 0;
+        const hadBrokenDuration = storedDuration > 0 && storedDuration < currentTime;
+        const duration = hadBrokenDuration ? 0 : Math.max(storedDuration, currentTime);
+        const percentage = hadBrokenDuration
+          ? (currentTime > 0 ? 1 : 0)
+          : (duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0);
+
+        return [key, {
+          ...progress,
+          currentTime,
+          duration,
+          percentage,
+          isCompleted: hadBrokenDuration ? false : Boolean(progress.isCompleted && percentage > 90)
+        }];
+      }));
     } catch (error) {
       console.error('Error reading progress data:', error);
       return {};
@@ -117,13 +139,13 @@ class ProgressService {
     if (diffDays > 7) {
       return date.toLocaleDateString();
     } else if (diffDays > 0) {
-      return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+      return `${diffDays} дн. назад`;
     } else if (diffHours > 0) {
-      return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+      return `${diffHours} ч. назад`;
     } else if (diffMinutes > 0) {
-      return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''} ago`;
+      return `${diffMinutes} мин. назад`;
     }
-    return 'Just now';
+    return 'Только что';
   }
 
   // Clear all progress data

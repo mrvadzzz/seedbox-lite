@@ -1,14 +1,5 @@
-import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
-
-const AuthContext = createContext();
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+import React, { useState, useEffect, useCallback } from 'react';
+import { AuthContext } from './auth';
 
 export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -18,7 +9,6 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('seedbox_authenticated');
     localStorage.removeItem('seedbox_auth_timestamp');
     setIsAuthenticated(false);
-    console.log('🚪 Authentication cleared');
   }, []);
 
   const checkAuthStatus = useCallback(() => {
@@ -36,14 +26,10 @@ export const AuthProvider = ({ children }) => {
         
         if (now - timestamp < EXPIRY_TIME) {
           setIsAuthenticated(true);
-          console.log('✅ Found valid authentication in localStorage');
         } else {
           // Clear expired authentication
           clearAuth();
-          console.log('⏰ Authentication expired, cleared localStorage');
         }
-      } else {
-        console.log('❌ No valid authentication found in localStorage');
       }
     } catch (error) {
       console.error('Error checking auth status:', error);
@@ -59,7 +45,6 @@ export const AuthProvider = ({ children }) => {
 
   const authenticate = () => {
     setIsAuthenticated(true);
-    console.log('� User authenticated successfully');
   };
 
   const logout = () => {

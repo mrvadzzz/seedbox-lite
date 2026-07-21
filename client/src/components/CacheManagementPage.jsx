@@ -53,7 +53,7 @@ const CacheManagementPage = () => {
   };
 
   const clearSingleTorrent = async (infoHash, name) => {
-    if (!window.confirm(`Remove "${name}" from cache? This will stop the torrent and clear its data.`)) {
+    if (!window.confirm(`Удалить «${name}» из кеша? Торрент остановится, а его данные будут очищены.`)) {
       return;
     }
 
@@ -64,19 +64,19 @@ const CacheManagementPage = () => {
 
       if (response.ok) {
         const result = await response.json();
-        alert(`Torrent "${name}" removed successfully. Freed: ${result.freedSpaceFormatted || '0 B'}`);
+        alert(`Торрент «${name}» удалён. Освобождено: ${result.freedSpaceFormatted || '0 B'}`);
         loadCacheStats();
       } else {
-        alert('Failed to remove torrent');
+        alert('Не удалось удалить торрент');
       }
     } catch (error) {
       console.error('Error removing torrent:', error);
-      alert('Error removing torrent: ' + error.message);
+      alert('Ошибка удаления торрента: ' + error.message);
     }
   };
 
   const clearAllCache = async () => {
-    if (!window.confirm('Clear ALL cache data? This will remove all torrents and downloaded data. This cannot be undone.')) {
+    if (!window.confirm('Очистить ВЕСЬ кеш? Будут удалены все торренты и загруженные данные. Это нельзя отменить.')) {
       return;
     }
 
@@ -87,19 +87,19 @@ const CacheManagementPage = () => {
 
       if (response.ok) {
         const result = await response.json();
-        alert(`All cache cleared! Freed: ${result.totalFreedFormatted || '0 B'}`);
+        alert(`Кеш очищен. Освобождено: ${result.totalFreedFormatted || '0 B'}`);
         loadCacheStats();
       } else {
-        alert('Failed to clear cache');
+        alert('Не удалось очистить кеш');
       }
     } catch (error) {
       console.error('Error clearing cache:', error);
-      alert('Error clearing cache: ' + error.message);
+      alert('Ошибка очистки кеша: ' + error.message);
     }
   };
 
   const clearOldCache = async (days) => {
-    if (!window.confirm(`Clear cache older than ${days} days? This will remove old torrent data.`)) {
+    if (!window.confirm(`Очистить кеш старше ${days} дней? Старые данные торрентов будут удалены.`)) {
       return;
     }
 
@@ -114,14 +114,14 @@ const CacheManagementPage = () => {
 
       if (response.ok) {
         const result = await response.json();
-        alert(`Old cache cleared! Removed ${result.deletedFiles || 0} files, freed: ${formatBytes(result.freedSpace || 0)}`);
+        alert(`Старый кеш очищен. Удалено файлов: ${result.deletedFiles || 0}, освобождено: ${formatBytes(result.freedSpace || 0)}`);
         loadCacheStats();
       } else {
-        alert('Failed to clear old cache');
+        alert('Не удалось очистить старый кеш');
       }
     } catch (error) {
       console.error('Error clearing old cache:', error);
-      alert('Error clearing old cache: ' + error.message);
+      alert('Ошибка очистки старого кеша: ' + error.message);
     }
   };
 
@@ -131,14 +131,14 @@ const CacheManagementPage = () => {
         <div className="page-header">
           <button onClick={() => navigate(-1)} className="back-button">
             <ArrowLeft size={20} />
-            Back
+            Назад
           </button>
           <h1>
             <HardDrive size={28} />
-            Cache Management
+            Управление кешем
           </h1>
         </div>
-        <div className="loading">Loading cache information...</div>
+        <div className="loading">Загрузка информации о кеше...</div>
       </div>
     );
   }
@@ -148,14 +148,14 @@ const CacheManagementPage = () => {
       <div className="page-header">
         <button onClick={() => navigate(-1)} className="back-button">
           <ArrowLeft size={20} />
-          Back
+          Назад
         </button>
         <div className="header-content">
           <h1>
             <HardDrive size={28} />
-            Cache Management
+            Управление кешем
           </h1>
-          <p>Manage your torrent cache and disk space</p>
+          <p>Управление кешем торрентов и местом на диске</p>
         </div>
         <button 
           onClick={loadCacheStats} 
@@ -163,25 +163,25 @@ const CacheManagementPage = () => {
           disabled={refreshing}
         >
           <RefreshCw size={16} className={refreshing ? 'spinning' : ''} />
-          Refresh
+          Обновить
         </button>
       </div>
 
       {/* Cache Usage Overview */}
       <div className="cache-section">
-        <h2>🌪️ WebTorrent Cache Usage</h2>
+        <h2>🌪️ Использование кеша WebTorrent</h2>
         <div className="disk-usage">
           <div className="disk-stats">
             <div className="disk-stat">
-              <span>Cache Size</span>
+              <span>Размер кеша</span>
               <span>{cacheStats.totalSizeFormatted}</span>
             </div>
             <div className="disk-stat">
-              <span>Cache Limit</span>
+              <span>Лимит кеша</span>
               <span>{cacheStats.cacheLimitFormatted || '5 GB'}</span>
             </div>
             <div className="disk-stat">
-              <span>Active Torrents</span>
+              <span>Активные торренты</span>
               <span>{cacheStats.activeTorrents}</span>
             </div>
           </div>
@@ -192,44 +192,44 @@ const CacheManagementPage = () => {
                 style={{ width: `${cacheStats.usagePercentage || 0}%` }}
               ></div>
             </div>
-            <span className="progress-text">{cacheStats.usagePercentage || 0}% cache used</span>
+            <span className="progress-text">Использовано кеша: {cacheStats.usagePercentage || 0}%</span>
           </div>
           <div className="cache-info">
-            <p>This shows only WebTorrent cache data, not system-wide disk usage.</p>
+            <p>Показан только кеш WebTorrent, а не весь диск системы.</p>
           </div>
         </div>
       </div>
 
       {/* Cache Overview */}
       <div className="cache-section">
-        <h2>📊 Cache Overview</h2>
+        <h2>📊 Обзор кеша</h2>
         <div className="stats-grid">
           <div className="stat-card">
             <HardDrive size={24} />
             <div>
               <span className="stat-value">{cacheStats.totalSizeFormatted}</span>
-              <span className="stat-label">Cache Size</span>
+              <span className="stat-label">Размер кеша</span>
             </div>
           </div>
           <div className="stat-card">
             <File size={24} />
             <div>
               <span className="stat-value">{cacheStats.fileCount}</span>
-              <span className="stat-label">Cached Files</span>
+              <span className="stat-label">Файлы в кеше</span>
             </div>
           </div>
           <div className="stat-card">
             <Activity size={24} />
             <div>
               <span className="stat-value">{cacheStats.activeTorrents}</span>
-              <span className="stat-label">Active Torrents</span>
+              <span className="stat-label">Активные торренты</span>
             </div>
           </div>
           <div className="stat-card">
             <Download size={24} />
             <div>
               <span className="stat-value">{cacheStats.totalDownloadedFormatted || '0 B'}</span>
-              <span className="stat-label">Downloaded</span>
+              <span className="stat-label">Загружено</span>
             </div>
           </div>
         </div>
@@ -237,28 +237,28 @@ const CacheManagementPage = () => {
 
       {/* Bulk Actions */}
       <div className="cache-section">
-        <h2>🧹 Bulk Actions</h2>
+        <h2>🧹 Массовые действия</h2>
         <div className="bulk-actions">
           <button 
             onClick={() => clearOldCache(7)} 
             className="action-button warning"
           >
             <Calendar size={16} />
-            Clear 7+ Day Old Files
+            Очистить файлы старше 7 дней
           </button>
           <button 
             onClick={() => clearOldCache(30)} 
             className="action-button warning"
           >
             <Calendar size={16} />
-            Clear 30+ Day Old Files
+            Очистить файлы старше 30 дней
           </button>
           <button 
             onClick={clearAllCache} 
             className="action-button danger"
           >
             <Trash2 size={16} />
-            Clear All Cache
+            Очистить весь кеш
           </button>
         </div>
       </div>
@@ -266,18 +266,18 @@ const CacheManagementPage = () => {
       {/* Individual Torrents */}
       {cacheStats.torrents.length > 0 && (
         <div className="cache-section">
-          <h2>🎬 Individual Torrents ({cacheStats.torrents.length})</h2>
+          <h2>🎬 Отдельные торренты ({cacheStats.torrents.length})</h2>
           <div className="torrents-list">
             {cacheStats.torrents.map((torrent) => (
               <div key={torrent.infoHash} className="torrent-item">
                 <div className="torrent-info">
                   <h3>{torrent.name}</h3>
                   <div className="torrent-stats">
-                    <span>{formatBytes(torrent.size || 0)} total</span>
-                    <span>{formatBytes(torrent.downloaded || 0)} downloaded</span>
-                    <span>{(torrent.progress * 100).toFixed(1)}% ready</span>
-                    <span>{torrent.files?.length || 0} files</span>
-                    <span>{torrent.peers || 0} peers</span>
+                    <span>Всего: {formatBytes(torrent.size || 0)}</span>
+                    <span>Загружено: {formatBytes(torrent.downloaded || 0)}</span>
+                    <span>Готово: {(torrent.progress * 100).toFixed(1)}%</span>
+                    <span>Файлов: {torrent.files?.length || 0}</span>
+                    <span>Пиров: {torrent.peers || 0}</span>
                   </div>
                   <div className="progress-bar">
                     <div 
@@ -291,14 +291,14 @@ const CacheManagementPage = () => {
                     onClick={() => navigate(`/torrent/${torrent.infoHash}`)}
                     className="view-button"
                   >
-                    View
+                    Открыть
                   </button>
                   <button 
                     onClick={() => clearSingleTorrent(torrent.infoHash, torrent.name)}
                     className="remove-button"
                   >
                     <Trash2 size={14} />
-                    Remove
+                    Удалить
                   </button>
                 </div>
               </div>
@@ -311,8 +311,8 @@ const CacheManagementPage = () => {
         <div className="cache-section">
           <div className="empty-state">
             <HardDrive size={48} />
-            <h3>No Active Torrents</h3>
-            <p>Add some torrents to see cache management options</p>
+            <h3>Активных торрентов нет</h3>
+            <p>Добавьте торренты, чтобы управлять кешем</p>
           </div>
         </div>
       )}

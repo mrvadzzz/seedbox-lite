@@ -12,7 +12,7 @@ const LoginScreen = ({ onAuthSuccess }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!password.trim()) {
-      setError('Please enter a password');
+      setError('Введите пароль');
       return;
     }
 
@@ -35,15 +35,15 @@ const LoginScreen = ({ onAuthSuccess }) => {
         localStorage.setItem('seedbox_authenticated', 'true');
         localStorage.setItem('seedbox_auth_timestamp', Date.now().toString());
         
-        console.log('✅ Authentication successful, stored in localStorage');
+        console.log('Авторизация успешна');
         onAuthSuccess();
       } else {
-        setError(data.error || 'Authentication failed');
+        setError(data.error || 'Не удалось войти');
         setPassword(''); // Clear password on failure
       }
     } catch (err) {
-      console.error('Authentication error:', err);
-      setError('Connection error. Please check if the server is running.');
+      console.error('Ошибка авторизации:', err);
+      setError('Ошибка соединения. Проверьте, запущен ли сервер.');
     } finally {
       setLoading(false);
     }
@@ -55,8 +55,8 @@ const LoginScreen = ({ onAuthSuccess }) => {
         <div className="login-container">
           <div className="login-header">
             <Shield size={48} className="login-icon" />
-            <h1>Seedbox Access</h1>
-            <p>Enter your password to access the torrent dashboard</p>
+            <h1>Вход в SeedBox</h1>
+            <p>Введите пароль для доступа к медиатеке</p>
           </div>
 
           <form onSubmit={handleSubmit} className="login-form">
@@ -66,7 +66,7 @@ const LoginScreen = ({ onAuthSuccess }) => {
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
+                placeholder="Введите пароль"
                 className="password-input"
                 disabled={loading}
                 autoFocus
@@ -97,14 +97,14 @@ const LoginScreen = ({ onAuthSuccess }) => {
               ) : (
                 <>
                   <Lock size={18} />
-                  Access Dashboard
+                  Войти
                 </>
               )}
             </button>
           </form>
 
           <div className="login-footer">
-            <p>🔒 Your session will be remembered on this device</p>
+            <p>Сессия сохранится на этом устройстве</p>
           </div>
         </div>
       </div>

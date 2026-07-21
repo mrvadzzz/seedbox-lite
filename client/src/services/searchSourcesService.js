@@ -26,7 +26,7 @@ class SearchSourcesService {
       // Validate URL
       try {
         new URL(source.url);
-      } catch (e) {
+      } catch {
         throw new Error('Invalid URL format');
       }
       
@@ -62,7 +62,7 @@ class SearchSourcesService {
       if (updates.url) {
         try {
           new URL(updates.url);
-        } catch (e) {
+        } catch {
           throw new Error('Invalid URL format');
         }
       }
@@ -167,7 +167,7 @@ class SearchSourcesService {
         
         try {
           new URL(source.url);
-        } catch (e) {
+        } catch {
           throw new Error(`Invalid URL format for source: ${source.name}`);
         }
       });

@@ -1,0 +1,13 @@
+node_modules/
+.env*
+data/
+cache/
+downloads/
+uploads/
+torrents/
+logs/
+*.torrent
+*.log
+index*.backup
+.git/
+.gitignore

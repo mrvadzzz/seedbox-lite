@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, Download, Star, Calendar, Clock, Users, Award, Info, Share, Plus, ThumbsUp, Volume2 } from 'lucide-react';
+import { ArrowLeft, Play, Download, Star, Share, Plus, ThumbsUp } from 'lucide-react';
 import VideoPlayer from './VideoPlayer';
 import { config } from '../config/environment';
 import progressService from '../services/progressService';
@@ -43,7 +43,7 @@ const TorrentPageNetflix = () => {
       const response = await fetch(`${config.apiBaseUrl}/api/torrents/${torrentHash}`);
       
       if (!response.ok) {
-        throw new Error(`Failed to fetch torrent data`);
+        throw new Error('Не удалось загрузить данные торрента');
       }
       
       const data = await response.json();
@@ -136,7 +136,7 @@ const TorrentPageNetflix = () => {
       <div className="netflix-page">
         <div className="netflix-loading">
           <div className="netflix-spinner"></div>
-          <p>Loading content...</p>
+          <p>Загрузка...</p>
         </div>
       </div>
     );
@@ -146,7 +146,7 @@ const TorrentPageNetflix = () => {
     return (
       <div className="netflix-page">
         <div className="netflix-error">
-          <h2>Something went wrong</h2>
+          <h2>Что-то пошло не так</h2>
           <p>{error}</p>
           <button 
             className="netflix-retry-btn"
@@ -157,7 +157,7 @@ const TorrentPageNetflix = () => {
               fetchIMDBData();
             }}
           >
-            Try Again
+            Повторить
           </button>
         </div>
       </div>
@@ -229,12 +229,12 @@ const TorrentPageNetflix = () => {
             onClick={() => navigate('/')}
           >
             <ArrowLeft size={20} />
-            Back
+            Назад
           </button>
 
           <div className="netflix-title-section">
             <h1 className="netflix-title">
-              {imdbData?.Title || torrent?.name || 'Unknown Title'}
+              {imdbData?.Title || torrent?.name || 'Без названия'}
             </h1>
             
             {imdbData && (
@@ -242,7 +242,7 @@ const TorrentPageNetflix = () => {
                 <div className="netflix-rating">
                   <Star size={16} className="star-icon" />
                   <span>{imdbData.imdbRating}/10</span>
-                  <span className="netflix-votes">({imdbData.imdbVotes} votes)</span>
+                  <span className="netflix-votes">({imdbData.imdbVotes} голосов)</span>
                 </div>
                 
                 <div className="netflix-info-row">
@@ -261,7 +261,7 @@ const TorrentPageNetflix = () => {
                   onClick={() => setSelectedVideo(mainVideoFile)}
                 >
                   <Play size={20} />
-                  {recentProgress[mainVideoFile.index] ? 'Resume' : 'Play'}
+                  {recentProgress[mainVideoFile.index] ? 'Продолжить' : 'Смотреть'}
                 </button>
               )}
               
@@ -269,26 +269,26 @@ const TorrentPageNetflix = () => {
                 <button 
                   className="netflix-secondary-btn"
                   onClick={() => handleDownload(mainVideoFile.index)}
-                  title="Download video"
+                  title="Скачать видео"
                 >
                   <Download size={20} />
-                  Download
+                  Скачать
                 </button>
               )}
               
               <button className="netflix-secondary-btn">
                 <Plus size={20} />
-                My List
+                В список
               </button>
               
               <button className="netflix-secondary-btn">
                 <ThumbsUp size={20} />
-                Rate
+                Оценить
               </button>
               
               <button className="netflix-secondary-btn">
                 <Share size={20} />
-                Share
+                Поделиться
               </button>
             </div>
 
@@ -312,11 +312,13 @@ const TorrentPageNetflix = () => {
         <div className="netflix-main-content">
           {/* Episodes/Files Section */}
           <div className="netflix-section">
-            <h2>Episodes & Files</h2>
+            <h2>Серии и файлы</h2>
             <div className="netflix-episodes">
               {videoFiles.map((file, index) => {
                 const progress = recentProgress[file.index];
-                const progressPercentage = progress ? (progress.currentTime / progress.duration) * 100 : 0;
+                const progressPercentage = progress?.duration > 0
+                  ? Math.min(100, Math.max(0, (progress.currentTime / progress.duration) * 100))
+                  : 0;
                 
                 return (
                   <div key={file.index} className="netflix-episode">
@@ -339,7 +341,7 @@ const TorrentPageNetflix = () => {
                     
                     <div className="netflix-episode-info">
                       <div className="netflix-episode-header">
-                        <h4>Episode {index + 1}</h4>
+                        <h4>Серия {index + 1}</h4>
                         <span className="netflix-episode-duration">
                           {formatFileSize(file.size)}
                         </span>
@@ -347,7 +349,8 @@ const TorrentPageNetflix = () => {
                       <p className="netflix-episode-title">{file.name}</p>
                       {progress && progress.currentTime != null && progress.duration != null && (
                         <p className="netflix-episode-progress">
-                          {progressService.formatTime(progress.currentTime)} / {progressService.formatTime(progress.duration)}
+                          {progressService.formatTime(progress.currentTime)}
+                          {progress.duration > progress.currentTime && ` / ${progressService.formatTime(progress.duration)}`}
                         </p>
                       )}
                     </div>
@@ -356,7 +359,7 @@ const TorrentPageNetflix = () => {
                       <button 
                         className="netflix-episode-download"
                         onClick={() => handleDownload(file.index)}
-                        title="Download episode"
+                        title="Скачать серию"
                       >
                         <Download size={18} />
                       </button>
@@ -370,7 +373,7 @@ const TorrentPageNetflix = () => {
           {/* Additional Files */}
           {otherFiles.length > 0 && (
             <div className="netflix-section">
-              <h2>Additional Files</h2>
+              <h2>Дополнительные файлы</h2>
               <div className="netflix-files">
                 {otherFiles.map(file => (
                   <div key={file.index} className="netflix-file">
@@ -378,7 +381,7 @@ const TorrentPageNetflix = () => {
                       className="netflix-file-icon"
                       onClick={() => handleDownload(file.index)}
                       style={{ cursor: 'pointer' }}
-                      title="Download file"
+                      title="Скачать файл"
                     >
                       <Download size={16} />
                     </div>
@@ -398,29 +401,29 @@ const TorrentPageNetflix = () => {
           {imdbData && (
             <>
               <div className="netflix-info-card">
-                <h3>Cast</h3>
+                <h3>Актёры</h3>
                 <p>{imdbData.Actors}</p>
               </div>
 
               <div className="netflix-info-card">
-                <h3>Director</h3>
+                <h3>Режиссёр</h3>
                 <p>{imdbData.Director}</p>
               </div>
 
               <div className="netflix-info-card">
-                <h3>Writer</h3>
+                <h3>Сценарий</h3>
                 <p>{imdbData.Writer}</p>
               </div>
 
               {imdbData.Awards && imdbData.Awards !== 'N/A' && (
                 <div className="netflix-info-card">
-                  <h3>Awards</h3>
+                  <h3>Награды</h3>
                   <p>{imdbData.Awards}</p>
                 </div>
               )}
 
               <div className="netflix-info-card">
-                <h3>Ratings</h3>
+                <h3>Рейтинги</h3>
                 <div className="netflix-ratings">
                   <div className="netflix-rating-item">
                     <span>IMDB</span>
@@ -445,22 +448,22 @@ const TorrentPageNetflix = () => {
 
           {/* Torrent Stats */}
           <div className="netflix-info-card">
-            <h3>Download Info</h3>
+            <h3>Информация о загрузке</h3>
             <div className="netflix-torrent-stats">
               <div className="netflix-stat">
-                <span>Size</span>
+                <span>Размер</span>
                 <span>{formatFileSize(torrent?.size || 0)}</span>
               </div>
               <div className="netflix-stat">
-                <span>Progress</span>
+                <span>Прогресс</span>
                 <span>{Math.round(torrent?.progress * 100 || 0)}%</span>
               </div>
               <div className="netflix-stat">
-                <span>Speed</span>
+                <span>Скорость</span>
                 <span>{formatSpeed(torrent?.downloadSpeed || 0)}</span>
               </div>
               <div className="netflix-stat">
-                <span>Peers</span>
+                <span>Пиры</span>
                 <span>{torrent?.peers || 0}</span>
               </div>
             </div>

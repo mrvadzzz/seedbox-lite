@@ -1,67 +1,52 @@
-# Environment files (keep examples, ignore actual configs)
+# Local configuration and secrets
 .env
-.env.local
-.env.*.local
-
-# Keep example files
+.env.*
 !.env.example
-!.env.production
-!.env.docker
+server/.env*
+client/.env*
 
-# Dependencies
+# Dependencies and package manager caches
 node_modules/
+.npm/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Production builds
-/client/dist/
-/client/build/
+# Build output and tool caches
+dist/
+build/
+.cache/
+.tmp/
+.vite/
+.eslintcache
+coverage/
+*.tsbuildinfo
+.docker-cli/
 
-# Runtime files
+# Runtime data
+data/
+cache/
+downloads/
 uploads/
-*.torrent
 torrents/
+logs/
+pids/
+*.torrent
+*.part
+*.pid
+*.pid.lock
+*.seed
+*.log
 
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# IDE files
+# Local editor and operating-system files
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
-# Logs
-logs/
-*.log
-
-# Cache
-.cache/
-.tmp/
-
-# Runtime data
-pids/
-*.pid
-*.seed
-*.pid.lock
-
-# Coverage directory used by tools like istanbul
-coverage/
-
-# Optional npm cache directory
-.npm
-
-# Optional eslint cache
-.eslintcache
-server/.env.production
-
-# Torrents
-downloads
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db

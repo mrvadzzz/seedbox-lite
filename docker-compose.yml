@@ -1,7 +1,4 @@
-version: '3.8'
-
 services:
-  # Backend API Server
   seedbox-backend:
     build:
       context: ./server
@@ -10,6 +7,8 @@ services:
     restart: unless-stopped
     ports:
       - "${BACKEND_PORT:-3001}:3001"
+      - "${TORRENT_PORT:-6881}:6881/tcp"
+      - "${DHT_PORT:-6882}:6882/udp"
     env_file:
       - .env
     volumes:
@@ -18,13 +17,12 @@ services:
     networks:
       - seedbox-network
 
-  # Frontend Web Server  
   seedbox-frontend:
     build:
       context: ./client
       dockerfile: Dockerfile
       args:
-        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:3001}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
     container_name: seedbox-frontend
     restart: unless-stopped
     ports:
@@ -33,6 +31,7 @@ services:
       - seedbox-backend
     networks:
       - seedbox-network
+
 volumes:
   seedbox_data:
     driver: local
